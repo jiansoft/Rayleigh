@@ -1,0 +1,37 @@
+name: .NET CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Cache NuGet
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+
+    - name: Restore
+      run: dotnet restore MyApp.sln
+
+    - name: Build (Release)
+      run: dotnet build MyApp.sln -c Release --no-restore
+
+    - name: Test
+      run: |
+        dotnet test MyApp.sln -c Release --no-build \
+          --logger "trx" \
+          --results-directory TestResults
