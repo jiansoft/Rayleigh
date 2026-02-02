@@ -7,7 +7,7 @@
     <!-- NuGet Package -->
     <Title>Rayleigh — Rust-inspired Option &amp; Result for C#</Title>
     <PackageId>jIAnSoft.Rayleigh</PackageId>
-    <Version>2026.2.2</Version>
+    <Version>26.2.2</Version>
     <Authors>Eddie</Authors>
     <Description>Zero-allocation, Rust-inspired Option and Result types for C#. Provides Option&lt;T&gt;, Result&lt;T, E&gt;, and Unit with full LINQ support, async extensions, and pattern matching integration.</Description>
     <PackageTags>option;result;functional;rust;monad;maybe;either;railway;rop;linq</PackageTags>
