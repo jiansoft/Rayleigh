@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 
 namespace jIAnSoft.Rayleigh;
@@ -146,7 +145,7 @@ public readonly struct Option<T> : IEquatable<Option<T>> where T : notnull
     /// <example>
     /// <code>
     /// var user = GetUser(id);
-    /// 
+    ///
     /// // 檢查使用者是否存在且為活躍狀態
     /// if (user.IsSomeAnd(u => u.IsActive))
     /// {
@@ -695,7 +694,7 @@ public readonly struct Option<T> : IEquatable<Option<T>> where T : notnull
     /// <example>
     /// <code>
     /// var (hasValue, val) = option;
-    /// 
+    ///
     /// var message = option switch
     /// {
     ///     (true, var v) => $"Value: {v}",

@@ -35,7 +35,7 @@ public static class E01OptionBasics
         ConsoleHelper.PrintResult("Option<string>.None", noneString);
 
         // ToOption() from nullable reference types
-        string? name = "Alice";
+        var name = "Alice";
         string? nullName = null;
         ConsoleHelper.PrintResult("\"Alice\".ToOption()", name.ToOption());
         ConsoleHelper.PrintResult("null (string?).ToOption()", nullName.ToOption());

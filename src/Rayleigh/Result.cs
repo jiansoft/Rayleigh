@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 
 namespace jIAnSoft.Rayleigh;
@@ -221,7 +220,7 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>> where TE : notn
     /// <example>
     /// <code>
     /// var result = GetUser(id);
-    /// 
+    ///
     /// // 檢查使用者是否為活躍狀態，若取得失敗則視為不活躍
     /// if (result.IsOkAnd(u => u.IsActive))
     /// {
@@ -248,7 +247,7 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>> where TE : notn
     /// <example>
     /// <code>
     /// var result = FetchData();
-    /// 
+    ///
     /// // 僅針對超時錯誤進行重試
     /// if (result.IsErrAnd(e => e is TimeoutException))
     /// {
@@ -649,7 +648,7 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>> where TE : notn
     /// {
     ///     return BadRequest(error); // 失敗分支
     /// }
-    /// 
+    ///
     /// // 成功分支，此處 user 保證有值
     /// return Ok(user);
     /// </code>
@@ -752,7 +751,7 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>> where TE : notn
     /// </remarks>
     /// <example>
     /// <code>
-    /// var value = result.UnwrapOrElse(err => 
+    /// var value = result.UnwrapOrElse(err =>
     /// {
     ///     _logger.LogWarning("Fallback due to: {Error}", err);
     ///     return ComputeExpensiveDefault();
@@ -956,7 +955,7 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>> where TE : notn
     /// <code>
     /// // 若成功則轉為字串，失敗則回傳錯誤訊息
     /// var msg = result.MapOrElse(
-    ///     err => $"Error: {err}", 
+    ///     err => $"Error: {err}",
     ///     val => $"Value: {val}"
     /// );
     /// </code>
