@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>jIAnSoft.Rayleigh</AssemblyName>
+    <RootNamespace>jIAnSoft.Rayleigh</RootNamespace>
+
+    <!-- NuGet Package -->
+    <Title>Rayleigh — Rust-inspired Option &amp; Result for C#</Title>
+    <PackageId>jIAnSoft.Rayleigh</PackageId>
+    <Version>2026.2.2</Version>
+    <Authors>Eddie</Authors>
+    <Description>Zero-allocation, Rust-inspired Option and Result types for C#. Provides Option&lt;T&gt;, Result&lt;T, E&gt;, and Unit with full LINQ support, async extensions, and pattern matching integration.</Description>
+    <PackageTags>option;result;functional;rust;monad;maybe;either;railway;rop;linq</PackageTags>
+    <Copyright>Copyright (c) 2026 jIAnSoft</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/jiansoft/Rayleigh</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/jiansoft/Rayleigh</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- Build -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

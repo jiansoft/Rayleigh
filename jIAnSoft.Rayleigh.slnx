@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Rayleigh/Rayleigh.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Rayleigh.Tests/Rayleigh.Tests.csproj" />
+  </Folder>
+  <Folder Name="/examples/">
+    <Project Path="examples/Rayleigh.Examples/Rayleigh.Examples.csproj" />
+  </Folder>
+</Solution>
