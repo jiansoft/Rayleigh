@@ -70,7 +70,7 @@ namespace jIAnSoft.Rayleigh;
 /// );
 /// </code>
 /// </example>
-public readonly struct Option<T> : IEquatable<Option<T>> where T : notnull
+public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>, IComparable where T : notnull
 {
     private readonly T? _value;
 
@@ -799,6 +799,68 @@ public readonly struct Option<T> : IEquatable<Option<T>> where T : notnull
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator !=(Option<T> left, Option<T> right) => !left.Equals(right);
+
+    #endregion
+
+    #region IComparable
+
+    /// <summary>
+    /// 比較目前的 <see cref="Option{T}"/> 與另一個 <see cref="Option{T}"/> 的順序。
+    /// </summary>
+    /// <param name="other">要比較的另一個 <see cref="Option{T}"/>。</param>
+    /// <returns>
+    /// 小於零表示此實例小於 <paramref name="other"/>；
+    /// 零表示此實例等於 <paramref name="other"/>；
+    /// 大於零表示此實例大於 <paramref name="other"/>。
+    /// </returns>
+    /// <remarks>
+    /// 排序規則：<c>None</c> 小於任何 <c>Some</c>。若兩者皆為 <c>Some</c>，則比較其包含的值。
+    /// </remarks>
+    public int CompareTo(Option<T> other)
+    {
+        return IsSome switch
+        {
+            true when other.IsSome => Comparer<T>.Default.Compare(_value, other._value),
+            false when !other.IsSome => 0,
+            _ => IsSome ? 1 : -1
+        };
+    }
+
+    /// <summary>
+    /// 比較目前的實例與另一個物件的順序。
+    /// </summary>
+    /// <param name="obj">要比較的物件。</param>
+    /// <returns>一個整數，指出此實例在排序順序中位於指定物件之前、之後或相同位置。</returns>
+    /// <exception cref="ArgumentException">當 <paramref name="obj"/> 的類型不正確時擲出。</exception>
+    public int CompareTo(object? obj)
+    {
+        return obj switch
+        {
+            null => 1,
+            Option<T> other => CompareTo(other),
+            _ => throw new ArgumentException($"Object must be of type {nameof(Option<T>)}")
+        };
+    }
+
+    /// <summary>
+    /// 判斷左運算元是否小於右運算元。
+    /// </summary>
+    public static bool operator <(Option<T> left, Option<T> right) => left.CompareTo(right) < 0;
+
+    /// <summary>
+    /// 判斷左運算元是否小於或等於右運算元。
+    /// </summary>
+    public static bool operator <=(Option<T> left, Option<T> right) => left.CompareTo(right) <= 0;
+
+    /// <summary>
+    /// 判斷左運算元是否大於右運算元。
+    /// </summary>
+    public static bool operator >(Option<T> left, Option<T> right) => left.CompareTo(right) > 0;
+
+    /// <summary>
+    /// 判斷左運算元是否大於或等於右運算元。
+    /// </summary>
+    public static bool operator >=(Option<T> left, Option<T> right) => left.CompareTo(right) >= 0;
 
     #endregion
 }

@@ -34,7 +34,11 @@ namespace jIAnSoft.Rayleigh;
 /// }
 /// </code>
 /// </example>
-public readonly record struct Ok<T>(T Value);
+public readonly record struct Ok<T>(T Value)
+{
+    /// <inheritdoc/>
+    public override string ToString() => $"Ok({Value})";
+}
 
 /// <summary>
 /// 代表失敗的包裹記錄，可隱式轉換為 <see cref="Result{T,E}"/>。
@@ -57,7 +61,11 @@ public readonly record struct Ok<T>(T Value);
 /// }
 /// </code>
 /// </example>
-public readonly record struct Err<TE>(TE Error);
+public readonly record struct Err<TE>(TE Error)
+{
+    /// <inheritdoc/>
+    public override string ToString() => $"Err({Error})";
+}
 
 
 // ================================
@@ -131,7 +139,7 @@ public readonly record struct Err<TE>(TE Error);
 ///               select account.Balance;
 /// </code>
 /// </remarks>
-public readonly struct Result<T, TE> : IEquatable<Result<T, TE>> where TE : notnull where T : notnull
+public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Result<T, TE>>, IComparable where TE : notnull where T : notnull
 {
     private readonly T? _value;
     private readonly TE? _error;
@@ -1036,6 +1044,92 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>> where TE : notn
 
     /// <summary>比較兩個 Result 是否不相等。</summary>
     public static bool operator !=(Result<T, TE> left, Result<T, TE> right) => !left.Equals(right);
+
+    #endregion
+
+    #region IComparable
+
+    /// <summary>
+    /// 比較目前的 <see cref="Result{T, TE}"/> 與另一個 <see cref="Result{T, TE}"/> 的順序。
+    /// </summary>
+    /// <param name="other">要比較的另一個 <see cref="Result{T, TE}"/>。</param>
+    /// <returns>
+    /// 小於零表示此實例小於 <paramref name="other"/>；
+    /// 零表示此實例等於 <paramref name="other"/>；
+    /// 大於零表示此實例大於 <paramref name="other"/>。
+    /// </returns>
+    /// <remarks>
+    /// 排序規則：<c>Err</c> 小於 <c>Ok</c>。若兩者皆為 <c>Ok</c> 或皆為 <c>Err</c>，則比較其包含的值。
+    /// </remarks>
+    public int CompareTo(Result<T, TE> other)
+    {
+        ThrowIfUninitialized();
+
+        // 嚴格來說，我們也應該檢查 other 是否已初始化。
+        // 雖然存取 other.IsOk 是屬性存取，但存取 other._error 或 other._value 是直接欄位存取。
+        // 當 other 是 default struct 時，IsOk=false 且 _error=null，這表示它處於未初始化狀態。
+        if (other is { IsOk: false, _error: null })
+        {
+             // 如果 other 未初始化該怎麼辦？拋出例外？
+             // 由於這是 struct，預設值是存在的。
+             // 但遵循此函式庫的設計原則，使用未初始化的 Result 視為錯誤。
+             ThrowUninitializedException();
+        }
+
+        if (IsOk && other.IsOk)
+        {
+            return Comparer<T>.Default.Compare(_value, other._value);
+        }
+
+        if (IsErr && other.IsErr)
+        {
+            return Comparer<TE>.Default.Compare(_error, other._error);
+        }
+
+        // Err < Ok
+        return IsOk ? 1 : -1;
+    }
+
+    /// <summary>
+    /// 比較目前的實例與另一個物件的順序。
+    /// </summary>
+    /// <param name="obj">要比較的物件。</param>
+    /// <returns>一個整數，指出此實例在排序順序中位於指定物件之前、之後或相同位置。</returns>
+    /// <exception cref="ArgumentException">當 <paramref name="obj"/> 的類型不正確時擲出。</exception>
+    public int CompareTo(object? obj)
+    {
+        if (obj is null)
+        {
+            return 1;
+        }
+
+        if (obj is Result<T, TE> other)
+        {
+            return CompareTo(other);
+        }
+
+        throw new ArgumentException($"Object must be of type {nameof(Result<T, TE>)}");
+    }
+
+    /// <summary>
+    /// 判斷左運算元是否小於右運算元。
+    /// </summary>
+    public static bool operator <(Result<T, TE> left, Result<T, TE> right) => left.CompareTo(right) < 0;
+
+    /// <summary>
+    /// 判斷左運算元是否小於或等於右運算元。
+    /// </summary>
+    public static bool operator <=(Result<T, TE> left, Result<T, TE> right) => left.CompareTo(right) <= 0;
+
+    /// <summary>
+    /// 判斷左運算元是否大於右運算元。
+    /// </summary>
+    public static bool operator >(Result<T, TE> left, Result<T, TE> right) => left.CompareTo(right) > 0;
+
+    /// <summary>
+    /// 判斷左運算元是否大於或等於右運算元。
+    /// </summary>
+    public static bool operator >=(Result<T, TE> left, Result<T, TE> right) => left.CompareTo(right) >= 0;
 
     #endregion
 }
