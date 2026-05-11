@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace jIAnSoft.Rayleigh.Extensions;
+namespace jIAnSoft.Rayleigh;
 
 /// <summary>
 /// 提供 <see cref="Option{T}"/> 的擴充方法。

@@ -1,4 +1,4 @@
-namespace jIAnSoft.Rayleigh.Extensions;
+namespace jIAnSoft.Rayleigh;
 
 /// <summary>
 /// 提供 <see cref="IEnumerable{T}"/> 的擴充方法。

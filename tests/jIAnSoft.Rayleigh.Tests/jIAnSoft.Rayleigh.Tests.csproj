@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Rayleigh\Rayleigh.csproj" />
+    <ProjectReference Include="..\..\src\jIAnSoft.Rayleigh\jIAnSoft.Rayleigh.csproj" />
   </ItemGroup>
 
 </Project>

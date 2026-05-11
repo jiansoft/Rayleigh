@@ -350,15 +350,11 @@ var maybeError = result.Err();
 ```
 Rayleigh/
 ├── src/
-│   └── Rayleigh/
-│       ├── Option.cs          # Option<T> 型別
-│       ├── Result.cs          # Result<T, E>、Ok<T>、Err<E> 型別
-│       ├── Unit.cs            # Unit 型別
-│       └── Extensions.cs      # 所有擴充方法
+│   └── jIAnSoft.Rayleigh/     # 核心函式庫
 ├── tests/
-│   └── Rayleigh.Tests/        # 單元測試（xUnit）
+│   └── jIAnSoft.Rayleigh.Tests/ # 單元測試（xUnit）
 ├── examples/
-│   └── Rayleigh.Examples/     # 可執行範例與常見誤用展示
+│   └── jIAnSoft.Rayleigh.Examples/ # 可執行範例
 ├── LICENSE
 └── README.md
 ```

@@ -350,15 +350,11 @@ var maybeError = result.Err();
 ```
 Rayleigh/
 ├── src/
-│   └── Rayleigh/
-│       ├── Option.cs          # Option<T> type
-│       ├── Result.cs          # Result<T, E>, Ok<T>, Err<E> types
-│       ├── Unit.cs            # Unit type
-│       └── Extensions.cs      # All extension methods
+│   └── jIAnSoft.Rayleigh/     # Core library
 ├── tests/
-│   └── Rayleigh.Tests/        # Unit tests (xUnit)
+│   └── jIAnSoft.Rayleigh.Tests/ # Unit tests (xUnit)
 ├── examples/
-│   └── Rayleigh.Examples/     # Runnable examples & common pitfalls
+│   └── jIAnSoft.Rayleigh.Examples/ # Runnable examples
 ├── LICENSE
 └── README.md
 ```

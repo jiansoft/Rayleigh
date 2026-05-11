@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace jIAnSoft.Rayleigh.Extensions;
+namespace jIAnSoft.Rayleigh;
 
 /// <summary>
 /// 提供 <see cref="Result{T,E}"/> 的擴充方法。

@@ -1,5 +1,4 @@
 using jIAnSoft.Rayleigh;
-using jIAnSoft.Rayleigh.Extensions;
 using Xunit;
 
 namespace Rayleigh.Tests;

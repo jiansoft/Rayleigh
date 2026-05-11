@@ -1,4 +1,4 @@
-namespace jIAnSoft.Rayleigh.Extensions;
+namespace jIAnSoft.Rayleigh;
 
 /// <summary>
 /// 提供 <see cref="Result{T,E}"/> 的非同步擴充方法。

@@ -1,11 +1,11 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/Rayleigh/Rayleigh.csproj" />
+    <Project Path="src/jIAnSoft.Rayleigh/jIAnSoft.Rayleigh.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/Rayleigh.Tests/Rayleigh.Tests.csproj" />
+    <Project Path="tests/jIAnSoft.Rayleigh.Tests/jIAnSoft.Rayleigh.Tests.csproj" />
   </Folder>
   <Folder Name="/examples/">
-    <Project Path="examples/Rayleigh.Examples/Rayleigh.Examples.csproj" />
+    <Project Path="examples/jIAnSoft.Rayleigh.Examples/jIAnSoft.Rayleigh.Examples.csproj" />
   </Folder>
 </Solution>

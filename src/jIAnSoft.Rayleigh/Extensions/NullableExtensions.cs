@@ -1,4 +1,4 @@
-namespace jIAnSoft.Rayleigh.Extensions;
+namespace jIAnSoft.Rayleigh;
 
 /// <summary>
 /// 提供將可空類型轉換為 <see cref="Option{T}"/> 的擴充方法。
