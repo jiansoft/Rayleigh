@@ -50,4 +50,17 @@ public class OptionImplicitConversionTests
 
         Assert.Equal("Hello, Alice", message);
     }
+
+    /// <summary>
+    /// 驗證萬用的 Option.None 可以隱式轉換為任何型別的 Option&lt;T&gt;。
+    /// </summary>
+    [Fact]
+    public void ImplicitConversion_FromUniversalNone_Works()
+    {
+        Option<int> optInt = Option.None;
+        Option<string> optStr = Option.None;
+
+        Assert.True(optInt.IsNone);
+        Assert.True(optStr.IsNone);
+    }
 }

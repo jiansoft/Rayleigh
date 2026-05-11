@@ -42,7 +42,8 @@ var some = Option<int>.Some(42);
 var none = Option<int>.None;
 
 // 使用隱式轉換（推薦寫法）
-Option<int> implicitSome = 42; // 隱式轉為 Some(42)
+Option<int> implicitSome = 42;          // 隱式轉為 Some(42)
+Option<int> implicitNone = Option.None; // 萬用 None 標記
 
 // 從可空參考型別轉換
 string? name = GetName();

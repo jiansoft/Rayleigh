@@ -42,7 +42,8 @@ var some = Option<int>.Some(42);
 var none = Option<int>.None;
 
 // Using implicit conversions (recommended)
-Option<int> implicitSome = 42; // implicitly Some(42)
+Option<int> implicitSome = 42;          // implicitly Some(42)
+Option<int> implicitNone = Option.None; // universal None marker
 
 // From nullable reference types
 string? name = GetName();

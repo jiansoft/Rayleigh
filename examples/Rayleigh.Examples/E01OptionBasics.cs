@@ -28,12 +28,20 @@ public static class E01OptionBasics
         var someString = Option<string>.Some("hello");
         ConsoleHelper.PrintResult("Option<string>.Some(\"hello\")", someString);
 
+        // [NEW] Implicit Conversion: Convert T directly to Option<T>
+        Option<int> implicitSomeInt = 42;
+        ConsoleHelper.PrintResult("Option<int> implicit = 42", implicitSomeInt);
+
+        Option<string> implicitSomeStr = "concise";
+        ConsoleHelper.PrintResult("Option<string> implicit = \"concise\"", implicitSomeStr);
+
         // None: represents the absence of a value
         var noneInt = Option<int>.None;
         ConsoleHelper.PrintResult("Option<int>.None", noneInt);
 
-        var noneString = Option<string>.None;
-        ConsoleHelper.PrintResult("Option<string>.None", noneString);
+        // [NEW] Universal None Marker: Option.None can be assigned to any Option<T>
+        Option<string> universalNone = Option.None;
+        ConsoleHelper.PrintResult("Option<string> none = Option.None", universalNone);
 
         // ToOption() from nullable reference types
         var name = "Alice";

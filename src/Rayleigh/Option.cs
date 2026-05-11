@@ -4,6 +4,52 @@ using System.Runtime.CompilerServices;
 namespace jIAnSoft.Rayleigh;
 
 /// <summary>
+/// 表示一個萬用的 None 標記型別。
+/// 此型別主要用於支援從 <see cref="Option.None"/> 到任意 <see cref="Option{T}"/> 的隱式轉換。
+/// </summary>
+public readonly struct OptionNone : IEquatable<OptionNone>
+{
+    /// <inheritdoc/>
+    public bool Equals(OptionNone other) => true;
+    /// <inheritdoc/>
+    public override bool Equals(object? obj) => obj is OptionNone;
+    /// <inheritdoc/>
+    public override int GetHashCode() => 0;
+    /// <inheritdoc/>
+    public override string ToString() => "None";
+    /// <summary>判斷兩個 OptionNone 是否相等。</summary>
+    public static bool operator ==(OptionNone left, OptionNone right) => true;
+    /// <summary>判斷兩個 OptionNone 是否不相等。</summary>
+    public static bool operator !=(OptionNone left, OptionNone right) => false;
+}
+
+/// <summary>
+/// 提供建立 <see cref="Option{T}"/> 的靜態輔助方法與萬用標記。
+/// </summary>
+public static class Option
+{
+    /// <summary>
+    /// 取得一個萬用的 None 標記。
+    /// 可以隱式轉換為任何型別的 <see cref="Option{T}.None"/>。
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// Option&lt;int&gt; opt = Option.None;
+    /// </code>
+    /// </example>
+    public static OptionNone None => default;
+
+    /// <summary>
+    /// 建立一個包含指定值的 <see cref="Option{T}"/>。
+    /// </summary>
+    /// <typeparam name="T">值的類型。</typeparam>
+    /// <param name="value">要包含的值。</param>
+    /// <returns>包含該值的 Option。</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Option<T> Some<T>(T value) where T : notnull => Option<T>.Some(value);
+}
+
+/// <summary>
 /// 表示一個可能有值或沒有值的選項類型，用於取代 null 以明確表達「無值」的語意。
 /// </summary>
 /// <typeparam name="T">包含值的類型，必須為非 null 的類型。</typeparam>
@@ -237,6 +283,14 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
     /// </example>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static implicit operator Option<T>(T value) => Some(value);
+
+    /// <summary>
+    /// 允許將 <see cref="OptionNone"/> 萬用標記隱式轉換為 <see cref="Option{T}.None"/>。
+    /// </summary>
+    /// <param name="_">None 標記。</param>
+    /// <returns>空的 Option。</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static implicit operator Option<T>(OptionNone _) => None;
 
     #endregion
 
