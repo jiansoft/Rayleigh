@@ -727,7 +727,7 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     public T Unwrap()
     {
         ThrowIfUninitialized();
-        return IsOk ? _value : throw new InvalidOperationException($"Result is Err: {_error}");
+        return IsOk ? _value : ThrowErrException();
     }
 
     /// <summary>
@@ -789,7 +789,7 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     public T Expect(string message)
     {
         ThrowIfUninitialized();
-        return IsOk ? _value : throw new InvalidOperationException(message);
+        return IsOk ? _value : ThrowErrException(message);
     }
 
     /// <summary>
@@ -803,7 +803,7 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     public TE UnwrapErr()
     {
         ThrowIfUninitialized();
-        return IsOk ? throw new InvalidOperationException("Result is Ok") : _error;
+        return IsErr ? _error : ThrowOkException();
     }
 
     /// <summary>
@@ -822,8 +822,16 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     public TE ExpectErr(string message)
     {
         ThrowIfUninitialized();
-        return IsErr ? _error : throw new InvalidOperationException(message);
+        return IsErr ? _error : ThrowOkException(message);
     }
+
+    [DoesNotReturn]
+    private T ThrowErrException(string? message = null)
+        => throw new InvalidOperationException(message ?? $"Result is Err: {_error}");
+
+    [DoesNotReturn]
+    private TE ThrowOkException(string? message = null)
+        => throw new InvalidOperationException(message ?? $"Result is Ok: {_value}");
 
     #endregion
 

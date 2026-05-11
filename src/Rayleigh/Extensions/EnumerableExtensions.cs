@@ -19,6 +19,33 @@ public static class EnumerableExtensions
     /// </example>
     public static IEnumerable<T> Values<T>(this IEnumerable<Option<T>> source) where T : notnull
     {
+        switch (source)
+        {
+            // 優化：針對陣列和列表進行更高效的處理，減少 Enumerator 分配
+            case Option<T>[] array:
+            {
+                foreach (var option in array)
+                {
+                    if (option.TryGetValue(out var value))
+                    {
+                        yield return value;
+                    }
+                }
+                yield break;
+            }
+            case List<Option<T>> list:
+            {
+                foreach (var option in list)
+                {
+                    if (option.TryGetValue(out var value))
+                    {
+                        yield return value;
+                    }
+                }
+                yield break;
+            }
+        }
+
         foreach (var option in source)
         {
             if (option.TryGetValue(out var value))

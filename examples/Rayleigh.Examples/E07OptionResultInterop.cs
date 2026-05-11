@@ -85,7 +85,7 @@ public static class E07OptionResultInterop
         ConsoleHelper.PrintSubSection("4. Nullable -> Option -> Result pipeline");
 
         // Simulating nullable input from external sources (e.g., user input, API response)
-        string? validInput = "hello";
+        var validInput = "hello";
         string? nullInput = null;
 
         // Pipeline: nullable -> ToOption -> ToResult

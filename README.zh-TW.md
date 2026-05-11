@@ -41,6 +41,9 @@ using jIAnSoft.Rayleigh;
 var some = Option<int>.Some(42);
 var none = Option<int>.None;
 
+// 使用隱式轉換（推薦寫法）
+Option<int> implicitSome = 42; // 隱式轉為 Some(42)
+
 // 從可空參考型別轉換
 string? name = GetName();
 var option = name.ToOption();  // Some("Alice") 或 None

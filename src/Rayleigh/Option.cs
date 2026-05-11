@@ -220,6 +220,26 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
 
     #endregion
 
+    #region Implicit Operators
+
+    /// <summary>
+    /// 允許將值隱式轉換為 <see cref="Option{T}"/>。
+    /// </summary>
+    /// <param name="value">要轉換的值。</param>
+    /// <returns>包含該值的 <see cref="Option{T}"/>。</returns>
+    /// <remarks>
+    /// <para>此運算子讓您可以直接將 T 類型的值指派給 Option&lt;T&gt;，簡化程式碼。</para>
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// Option&lt;int&gt; some = 42; // 等同於 Option&lt;int&gt;.Some(42)
+    /// </code>
+    /// </example>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static implicit operator Option<T>(T value) => Some(value);
+
+    #endregion
+
     #region Match
 
     /// <summary>
@@ -523,7 +543,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
     /// <para>僅在**非常確定** Option 必定有值，或者無值時應該視為程式 bug（拋出例外）的情況下使用。</para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public T Unwrap() => IsSome ? _value : throw new InvalidOperationException("Option is None");
+    public T Unwrap() => IsSome ? _value : ThrowNoneException();
 
     /// <summary>
     /// 取出值。若為 <see cref="IsNone"/> 則回傳指定的預設值。
@@ -560,7 +580,11 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
     /// <para>類似 <see cref="Unwrap"/>，但希望能提供更清楚的錯誤訊息以便除錯。</para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public T Expect(string message) => IsSome ? _value : throw new InvalidOperationException(message);
+    public T Expect(string message) => IsSome ? _value : ThrowNoneException(message);
+
+    [DoesNotReturn]
+    private static T ThrowNoneException(string? message = null)
+        => throw new InvalidOperationException(message ?? "Option is None");
 
     #endregion
 
