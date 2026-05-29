@@ -56,4 +56,48 @@ public static class OptionExtensions
     /// </example>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Option<T> Flatten<T>(this Option<Option<T>> nested) where T : notnull => nested.Bind(inner => inner);
+
+    /// <summary>
+    /// 將 <see cref="Option{T}"/> 轉換為可空的值類型，若無值則傳回 <c>null</c>。
+    /// </summary>
+    /// <typeparam name="T">值的類型，必須為值類型。</typeparam>
+    /// <param name="option">要轉換的 Option。</param>
+    /// <returns>若有值則傳回該值；若無值則傳回 <c>null</c>。</returns>
+    /// <example>
+    /// <code>
+    /// Option&lt;int&gt; some = 42;
+    /// int? nullableInt = some.OrNull(); // 42
+    ///
+    /// Option&lt;int&gt; none = Option&lt;int&gt;.None;
+    /// int? nullInt = none.OrNull(); // null
+    /// </code>
+    /// </example>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static T? OrNull<T>(this Option<T> option) where T : struct =>
+        option.TryGetValue(out var value) ? value : null;
+}
+
+/// <summary>
+/// 提供 <see cref="Option{T}"/> 針對參考類型的擴充方法。
+/// </summary>
+public static class OptionClassExtensions
+{
+    /// <summary>
+    /// 將 <see cref="Option{T}"/> 轉換為可空的參考類型，若無值則傳回 <c>null</c>。
+    /// </summary>
+    /// <typeparam name="T">值的類型，必須為參考類型。</typeparam>
+    /// <param name="option">要轉換的 Option。</param>
+    /// <returns>若有值則傳回該值；若無值則傳回 <c>null</c>。</returns>
+    /// <example>
+    /// <code>
+    /// Option&lt;string&gt; some = "Hello";
+    /// string? nullableStr = some.OrNull(); // "Hello"
+    ///
+    /// Option&lt;string&gt; none = Option&lt;string&gt;.None;
+    /// string? nullStr = none.OrNull(); // null
+    /// </code>
+    /// </example>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static T? OrNull<T>(this Option<T> option) where T : class =>
+        option.TryGetValue(out var value) ? value : null;
 }

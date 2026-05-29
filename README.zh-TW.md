@@ -340,6 +340,7 @@ var maybeError = result.Err();
 
 | 類別 | 方法 | 說明 |
 |---|---|---|
+| `OptionExtensions` | `OrNull()` | 將 `Option<T>` 轉換為 `T?`（支援值型別與參考型別） |
 | `NullableExtensions` | `ToOption()` | 將 `T?`（參考或值型別）轉換為 `Option<T>` |
 | `EnumerableExtensions` | `Values()` | 從 `IEnumerable<Option<T>>` 過濾出所有 `Some` 值 |
 | `OptionAsyncExtensions` | `BindAsync` / `MapAsync` / `OrElseAsync` | 非同步 Option 串接（`Task` 與 `ValueTask`） |

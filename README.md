@@ -340,6 +340,7 @@ var maybeError = result.Err();
 
 | Class | Method | Description |
 |---|---|---|
+| `OptionExtensions` | `OrNull()` | Convert `Option<T>` to `T?` (supports both struct and class types) |
 | `NullableExtensions` | `ToOption()` | Convert `T?` (reference or value type) to `Option<T>` |
 | `EnumerableExtensions` | `Values()` | Filter `IEnumerable<Option<T>>` to extract all `Some` values |
 | `OptionAsyncExtensions` | `BindAsync` / `MapAsync` / `OrElseAsync` | Async Option chaining (`Task` & `ValueTask`) |

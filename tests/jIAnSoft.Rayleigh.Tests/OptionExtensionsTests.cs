@@ -184,4 +184,65 @@ public class OptionExtensionsTests
 
         Assert.True(result.IsNone);
     }
+
+
+
+    // ==========================================
+    // OrNull - Structs
+    // ==========================================
+
+    /// <summary>
+    /// 驗證 Some(42) 使用 OrNull() 轉換時，回傳具有對應數值的 Nullable 物件。
+    /// </summary>
+    [Fact]
+    public void OrNull_StructSome_ReturnsValue()
+    {
+        Option<int> some = 42;
+        int? result = some.OrNull();
+
+        Assert.True(result.HasValue);
+        Assert.Equal(42, result.Value);
+    }
+
+    /// <summary>
+    /// 驗證 None 使用 OrNull() 轉換時，回傳 null。
+    /// </summary>
+    [Fact]
+    public void OrNull_StructNone_ReturnsNull()
+    {
+        Option<int> none = Option<int>.None;
+        int? result = none.OrNull();
+
+        Assert.False(result.HasValue);
+        Assert.Null(result);
+    }
+
+    // ==========================================
+    // OrNull - Classes
+    // ==========================================
+
+    /// <summary>
+    /// 驗證 Some("hello") 使用 OrNull() 轉換時，回傳該字串。
+    /// </summary>
+    [Fact]
+    public void OrNull_ClassSome_ReturnsValue()
+    {
+        Option<string> some = "hello";
+        string? result = some.OrNull();
+
+        Assert.NotNull(result);
+        Assert.Equal("hello", result);
+    }
+
+    /// <summary>
+    /// 驗證 None 使用 OrNull() 轉換時，回傳 null。
+    /// </summary>
+    [Fact]
+    public void OrNull_ClassNone_ReturnsNull()
+    {
+        Option<string> none = Option<string>.None;
+        string? result = none.OrNull();
+
+        Assert.Null(result);
+    }
 }
