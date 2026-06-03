@@ -1078,10 +1078,10 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
         // 當 other 是 default struct 時，IsOk=false 且 _error=null，這表示它處於未初始化狀態。
         if (other is { IsOk: false, _error: null })
         {
-             // 如果 other 未初始化該怎麼辦？拋出例外？
-             // 由於這是 struct，預設值是存在的。
-             // 但遵循此函式庫的設計原則，使用未初始化的 Result 視為錯誤。
-             ThrowUninitializedException();
+            // 如果 other 未初始化該怎麼辦？拋出例外？
+            // 由於這是 struct，預設值是存在的。
+            // 但遵循此函式庫的設計原則，使用未初始化的 Result 視為錯誤。
+            ThrowUninitializedException();
         }
 
         if (IsOk && other.IsOk)
