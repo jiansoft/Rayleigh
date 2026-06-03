@@ -48,3 +48,14 @@ dotnet_naming_style.camel_case_with_underscore.capitalization = camel_case
 # Null checking
 dotnet_style_null_propagation = true:suggestion
 dotnet_style_prefer_is_null_check_over_reference_equality_method = true:suggestion
+
+# JetBrains ReSharper / Rider inspections suppression
+resharper_unused_auto_property_accessor_local_highlighting = none
+resharper_suspicious_type_conversion_global_highlighting = none
+resharper_unused_variable_highlighting = none
+resharper_unused_member_local_highlighting = none
+resharper_unused_member_global_highlighting = none
+resharper_unused_parameter_local_highlighting = none
+resharper_unused_parameter_global_highlighting = none
+resharper_prefer_concrete_value_over_default_highlighting = none
+resharper_convert_closure_to_method_group_highlighting = none

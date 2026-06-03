@@ -1,7 +1,7 @@
 using jIAnSoft.Rayleigh;
-using Rayleigh.Examples.Helpers;
+using jIAnSoft.Rayleigh.Examples.Helpers;
 
-namespace Rayleigh.Examples;
+namespace jIAnSoft.Rayleigh.Examples;
 
 file record AgeRecord(int Age, string Label);
 

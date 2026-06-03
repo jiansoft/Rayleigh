@@ -1,4 +1,4 @@
-namespace Rayleigh.Examples.Helpers;
+namespace jIAnSoft.Rayleigh.Examples.Helpers;
 
 internal static class ConsoleHelper
 {

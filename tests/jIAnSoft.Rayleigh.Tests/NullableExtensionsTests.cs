@@ -1,7 +1,7 @@
 using jIAnSoft.Rayleigh;
 using Xunit;
 
-namespace Rayleigh.Tests;
+namespace jIAnSoft.Rayleigh.Tests;
 
 /// <summary>
 /// 測試 <see cref="NullableExtensions"/> 靜態類別中的擴充方法，

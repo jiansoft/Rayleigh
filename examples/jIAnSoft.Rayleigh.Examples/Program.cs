@@ -1,4 +1,4 @@
-using Rayleigh.Examples;
+using jIAnSoft.Rayleigh.Examples;
 
 var examples = new (string Name, Func<Task> Run)[]
 {

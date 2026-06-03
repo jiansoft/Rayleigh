@@ -916,7 +916,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
         {
             null => 1,
             Option<T> other => CompareTo(other),
-            _ => throw new ArgumentException($"Object must be of type {nameof(Option<T>)}")
+            _ => throw new ArgumentException($"Object must be of type {nameof(Option)}")
         };
     }
 
