@@ -16,16 +16,21 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: |
+          8.0.x
+          10.0.x
 
     - name: Cache NuGet
       uses: actions/cache@v4
       with:
         path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
 
     - name: Restore
       run: dotnet restore jIAnSoft.Rayleigh.slnx
+
+    - name: Check Code Format
+      run: dotnet format jIAnSoft.Rayleigh.slnx --verify-no-changes --severity info
 
     - name: Build (Release)
       run: dotnet build jIAnSoft.Rayleigh.slnx -c Release --no-restore
@@ -34,4 +39,25 @@ jobs:
       run: |
         dotnet test jIAnSoft.Rayleigh.slnx -c Release --no-build \
           --logger "trx" \
-          --results-directory TestResults
+          --results-directory TestResults \
+          --collect:"XPlat Code Coverage"
+
+    - name: Generate Code Coverage Report
+      uses: irongut/CodeCoverageSummary@v1.3.0
+      with:
+        filename: TestResults/**/coverage.cobertura.xml
+        badge: true
+        fail_below_min: false
+        format: markdown
+        hide_branch_coverage: false
+        hide_check_runs: false
+        indicators: true
+        output: both
+        thresholds: '60 80'
+
+    - name: Add Coverage PR Comment
+      uses: marocchino/sticky-pull-request-comment@v2
+      if: github.event_name == 'pull_request'
+      with:
+        recreate: true
+        path: code-coverage-results.md
