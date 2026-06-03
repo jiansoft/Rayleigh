@@ -18,9 +18,9 @@ public readonly struct OptionNone : IEquatable<OptionNone>
     /// <inheritdoc/>
     public override string ToString() => "None";
     /// <summary>判斷兩個 OptionNone 是否相等。</summary>
-    public static bool operator ==(OptionNone left, OptionNone right) => true;
+    public static bool operator ==(OptionNone left, OptionNone right) => left.Equals(right);
     /// <summary>判斷兩個 OptionNone 是否不相等。</summary>
-    public static bool operator !=(OptionNone left, OptionNone right) => false;
+    public static bool operator !=(OptionNone left, OptionNone right) => !left.Equals(right);
 }
 
 /// <summary>
