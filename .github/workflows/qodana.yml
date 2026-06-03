@@ -28,5 +28,8 @@ jobs:
 
       - name: 'Qodana Scan'
         uses: JetBrains/qodana-action@v2026.1
-        env:
-          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
+        with:
+          upload-result: false
+          args: |
+            --linter qodana-cdnet
+            --solution jIAnSoft.Rayleigh.slnx
