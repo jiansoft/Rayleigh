@@ -1,4 +1,3 @@
-using jIAnSoft.Rayleigh;
 using jIAnSoft.Rayleigh.Examples.Helpers;
 
 namespace jIAnSoft.Rayleigh.Examples;

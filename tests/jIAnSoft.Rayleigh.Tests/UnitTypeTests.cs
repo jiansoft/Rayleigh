@@ -1,4 +1,3 @@
-using jIAnSoft.Rayleigh;
 using Xunit;
 
 namespace jIAnSoft.Rayleigh.Tests;
