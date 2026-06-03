@@ -433,7 +433,7 @@ public class UnitTypeTests
 
         // Act
 #pragma warning disable CS1718 // 故意測試與自身比較
-// ReSharper disable once EqualExpressionComparison
+        // ReSharper disable once EqualExpressionComparison
         var result = unit == unit;
 #pragma warning restore CS1718
 
@@ -493,7 +493,7 @@ public class UnitTypeTests
 
         // Act
 #pragma warning disable CS1718 // 故意測試與自身比較
-// ReSharper disable once EqualExpressionComparison
+        // ReSharper disable once EqualExpressionComparison
         var result = unit != unit;
 #pragma warning restore CS1718
 
