@@ -1,7 +1,6 @@
-using jIAnSoft.Rayleigh;
 using Xunit;
 
-namespace Rayleigh.Tests;
+namespace jIAnSoft.Rayleigh.Tests;
 
 /// <summary>
 /// 測試 <see cref="Option{T}"/> 的隱式轉換功能。

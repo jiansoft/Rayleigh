@@ -18,9 +18,9 @@ public readonly struct OptionNone : IEquatable<OptionNone>
     /// <inheritdoc/>
     public override string ToString() => "None";
     /// <summary>判斷兩個 OptionNone 是否相等。</summary>
-    public static bool operator ==(OptionNone left, OptionNone right) => true;
+    public static bool operator ==(OptionNone left, OptionNone right) => left.Equals(right);
     /// <summary>判斷兩個 OptionNone 是否不相等。</summary>
-    public static bool operator !=(OptionNone left, OptionNone right) => false;
+    public static bool operator !=(OptionNone left, OptionNone right) => !left.Equals(right);
 }
 
 /// <summary>
@@ -916,7 +916,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
         {
             null => 1,
             Option<T> other => CompareTo(other),
-            _ => throw new ArgumentException($"Object must be of type {nameof(Option<T>)}")
+            _ => throw new ArgumentException($"Object must be of type {nameof(Option)}")
         };
     }
 

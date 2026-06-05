@@ -1,7 +1,6 @@
-using jIAnSoft.Rayleigh;
-using Rayleigh.Examples.Helpers;
+using jIAnSoft.Rayleigh.Examples.Helpers;
 
-namespace Rayleigh.Examples;
+namespace jIAnSoft.Rayleigh.Examples;
 
 file record Customer(int Id, string Name);
 file record Address(int CustomerId, string City);

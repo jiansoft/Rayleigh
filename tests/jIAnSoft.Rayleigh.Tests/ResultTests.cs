@@ -1,7 +1,6 @@
-using jIAnSoft.Rayleigh;
 using Xunit;
 
-namespace Rayleigh.Tests;
+namespace jIAnSoft.Rayleigh.Tests;
 
 public class ResultTests
 {

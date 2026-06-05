@@ -1,4 +1,4 @@
-#-------------------------------------------------------------------------------#
+﻿#-------------------------------------------------------------------------------#
 #               Qodana analysis is configured by qodana.yaml file               #
 #             https://www.jetbrains.com/help/qodana/qodana-yaml.html            #
 #-------------------------------------------------------------------------------#
@@ -8,9 +8,6 @@
 #               as its contents will be included in the Qodana report.          #
 #################################################################################
 version: "1.0"
-
-#Specify linter for code analysis
-linter: qodana-cdnet
 
 #Specify inspection profile for code analysis
 profile:
