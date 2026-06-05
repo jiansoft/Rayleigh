@@ -1,4 +1,4 @@
-﻿#-------------------------------------------------------------------------------#
+#-------------------------------------------------------------------------------#
 #               Qodana analysis is configured by qodana.yaml file               #
 #             https://www.jetbrains.com/help/qodana/qodana-yaml.html            #
 #-------------------------------------------------------------------------------#
@@ -9,8 +9,8 @@
 #################################################################################
 version: "1.0"
 
-#Specify IDE code to run analysis without container (Applied in CI/CD pipeline)
-ide: QDNET
+#Specify linter for code analysis
+linter: qodana-cdnet
 
 #Specify inspection profile for code analysis
 profile:
