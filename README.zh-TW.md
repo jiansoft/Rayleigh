@@ -4,7 +4,7 @@
 
 受 Rust 啟發的 C# Option 與 Result 型別。
 
-專為 .NET 8 打造的零分配、高效能函數式基礎型別庫。
+專為 .NET 8 與 .NET 10 打造的零分配、高效能函數式基礎型別庫。
 
 ## 為什麼選擇 Rayleigh？
 
@@ -29,6 +29,22 @@ dotnet add package jIAnSoft.Rayleigh
 ```
 Install-Package jIAnSoft.Rayleigh
 ```
+
+## 何時使用 Option 或 Result
+
+當「沒有值」是正常結果，而且呼叫端不需要知道缺值原因時，使用 `Option<T>`。
+當失敗需要原因，且呼叫端可能要記錄、顯示、從 API 回傳、重試或依錯誤分流處理時，使用 `Result<T, E>`。
+
+| 情境 | 使用 |
+|---|---|
+| 查詢可能找到值，也可能找不到 | `Option<T>` |
+| 可空值需要變成明確型別 | `Option<T>` |
+| 缺值是預期狀態，不是錯誤 | `Option<T>` |
+| 驗證、授權、解析或 I/O 可能失敗 | `Result<T, E>` |
+| 呼叫端需要錯誤原因 | `Result<T, E>` |
+| 失敗需要被記錄、顯示、回傳、重試，或依錯誤型別做不同處理 | `Result<T, E>` |
+
+簡單說：`Option<T>` 表示可能有值；`Result<T, E>` 表示成功或有原因的失敗。
 
 ## 使用方式
 
@@ -311,7 +327,10 @@ var maybeError = result.Err();
 | `TryGetValue(out value)` | TryParse 風格取值 |
 | `ToResult(error)` / `ToResult(factory)` | 轉換為 Result |
 | `MapOr(default, mapper)` / `MapOrElse(factory, mapper)` | 帶備援的映射 |
+| `Deconstruct(out isSome, out value)` | 解構支援，用於模式比對與 switch 表達式 |
 | `Select` / `SelectMany` / `Where` | LINQ 支援 |
+| `Equals` / `CompareTo` / 比較運算子 | 相等、排序與比較支援；`None` 會排在 `Some` 前面 |
+| `ToString()` | 方便偵錯的 `Some(value)` 或 `None` 文字 |
 | `Flatten()` | 展平巢狀 `Option<Option<T>>`（擴充方法） |
 
 ### Result\<T, E\>
@@ -333,8 +352,20 @@ var maybeError = result.Err();
 | `TryGetOk(out value)` / `TryGetOk(out value, out error)` / `TryGetErr(out error)` | TryParse 風格 |
 | `ToOption()` / `Err()` | 轉換為 Option |
 | `MapOr` / `MapOrElse` | 帶備援的映射 |
+| `Deconstruct(out isOk, out value, out error)` | 解構支援，用於模式比對與 switch 表達式 |
 | `Select` / `SelectMany` | LINQ 支援 |
+| `Equals` / `CompareTo` / 比較運算子 | 相等、排序與比較支援；`Err` 會排在 `Ok` 前面 |
+| `ToString()` | 方便偵錯的 `Ok(value)` 或 `Err(error)` 文字 |
 | `Flatten()` | 展平巢狀 `Result<Result<T,E>,E>`（擴充方法） |
+
+### 輔助型別
+
+| 型別 | API | 說明 |
+|---|---|---|
+| `Unit` | `Unit.Value` | 表示成功但沒有有意義回傳值的結果，常用於 `Result<Unit, E>` |
+| `Unit` | `Equals` / `CompareTo` / `==` / `!=` / `ToString()` | 所有 Unit 值都相等、比較結果相同，並顯示為 `()` |
+| `OptionNone` | `Option.None` 標記 | 萬用 None 標記，可隱式轉換為任何 `Option<T>` |
+| `Ok<T>` / `Err<E>` | 包裝記錄 | 當隱式轉換有歧義或需要更明確語意時，用來建立 `Result<T, E>` |
 
 ### 擴充方法
 

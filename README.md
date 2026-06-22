@@ -4,7 +4,7 @@
 
 Option and Result types for C#, inspired by Rust.
 
-A zero-allocation, high-performance functional primitives library for .NET 8.
+A zero-allocation, high-performance functional primitives library for .NET 8 and .NET 10.
 
 ## Why Rayleigh?
 
@@ -29,6 +29,22 @@ Or via the NuGet Package Manager:
 ```
 Install-Package jIAnSoft.Rayleigh
 ```
+
+## When to Use Option vs Result
+
+Use `Option<T>` when absence is a normal outcome and the caller does not need to know why the value is missing.
+Use `Result<T, E>` when failure needs an explanation that the caller may log, display, return from an API, retry, or branch on.
+
+| Situation | Use |
+|---|---|
+| A lookup may or may not find a value | `Option<T>` |
+| A nullable value should become explicit | `Option<T>` |
+| Missing value is expected and not an error | `Option<T>` |
+| Validation, authorization, parsing, or I/O can fail | `Result<T, E>` |
+| The caller needs an error reason | `Result<T, E>` |
+| The failure should be logged, displayed, returned, retried, or handled differently by type | `Result<T, E>` |
+
+In short: `Option<T>` means maybe value; `Result<T, E>` means success or explained failure.
 
 ## Usage
 
@@ -311,7 +327,10 @@ var maybeError = result.Err();
 | `TryGetValue(out value)` | TryParse-style extraction |
 | `ToResult(error)` / `ToResult(factory)` | Convert to Result |
 | `MapOr(default, mapper)` / `MapOrElse(factory, mapper)` | Map with fallback |
+| `Deconstruct(out isSome, out value)` | Deconstruct for pattern matching and switch expressions |
 | `Select` / `SelectMany` / `Where` | LINQ support |
+| `Equals` / `CompareTo` / comparison operators | Equality, ordering, and sorting support; `None` sorts before `Some` |
+| `ToString()` | Debug-friendly `Some(value)` or `None` text |
 | `Flatten()` | Unwrap nested `Option<Option<T>>` (extension) |
 
 ### Result\<T, E\>
@@ -333,8 +352,20 @@ var maybeError = result.Err();
 | `TryGetOk(out value)` / `TryGetOk(out value, out error)` / `TryGetErr(out error)` | TryParse-style |
 | `ToOption()` / `Err()` | Convert to Option |
 | `MapOr` / `MapOrElse` | Map with fallback |
+| `Deconstruct(out isOk, out value, out error)` | Deconstruct for pattern matching and switch expressions |
 | `Select` / `SelectMany` | LINQ support |
+| `Equals` / `CompareTo` / comparison operators | Equality, ordering, and sorting support; `Err` sorts before `Ok` |
+| `ToString()` | Debug-friendly `Ok(value)` or `Err(error)` text |
 | `Flatten()` | Unwrap nested `Result<Result<T,E>,E>` (extension) |
+
+### Supporting Types
+
+| Type | API | Description |
+|---|---|---|
+| `Unit` | `Unit.Value` | Represents a successful result with no meaningful value, useful as `Result<Unit, E>` |
+| `Unit` | `Equals` / `CompareTo` / `==` / `!=` / `ToString()` | All Unit values are equal, compare as equal, and render as `()` |
+| `OptionNone` | `Option.None` marker | Universal None marker that can implicitly convert to any `Option<T>` |
+| `Ok<T>` / `Err<E>` | Wrapper records | Explicit wrappers for creating `Result<T, E>` when implicit conversion is ambiguous or clarity matters |
 
 ### Extension Methods
 
