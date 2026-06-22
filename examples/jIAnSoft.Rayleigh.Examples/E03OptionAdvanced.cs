@@ -4,8 +4,17 @@ namespace jIAnSoft.Rayleigh.Examples;
 
 file record Product(int Id, string Name, decimal Price);
 
+/// <summary>
+/// Runs advanced Option examples covering LINQ integration, zip-style composition, conversion to Result, and explicit value extraction.
+/// This sample exists for developers who already know basic Some and None behavior and need to see how Option participates in larger workflows.
+/// It takes no input, returns no data, and writes explanatory output to the console for learning and manual inspection.
+/// </summary>
 public static class E03OptionAdvanced
 {
+    /// <summary>
+    /// Executes the advanced Option walkthrough in a stable order so related operations can be compared in one console run.
+    /// Use this method when running the examples application; it accepts no parameters, returns void, and performs console output as its only observable side effect.
+    /// </summary>
     public static void Run()
     {
         ConsoleHelper.PrintHeader("E03 - Option Advanced: Zip, Or, Tap, TryGetValue, Unwrap, Deconstruct, Match");

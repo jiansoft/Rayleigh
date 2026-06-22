@@ -2,8 +2,17 @@ using Xunit;
 
 namespace jIAnSoft.Rayleigh.Tests;
 
+/// <summary>
+/// Contains comparison-focused tests for Option and Result ordering operators and CompareTo implementations.
+/// This test class exists to document and guard the library contract that absence or error states sort before successful value states, while equal values compare as equal.
+/// Test methods take no input, return no values, and use xUnit assertions as their only observable result.
+/// </summary>
 public class ComparisonTests
 {
+    /// <summary>
+    /// Verifies that Option comparison treats None as less than Some and compares two Some values by their contained values.
+    /// Use this test to confirm the ordering contract behind CompareTo and relational operators; it has no parameters, returns void, and fails through xUnit assertions if the contract changes.
+    /// </summary>
     [Fact]
     public void Option_CompareTo_ShouldWorkCorrectly()
     {
@@ -33,6 +42,10 @@ public class ComparisonTests
         Assert.True(none.CompareTo(Option<int>.None) == 0);
     }
 
+    /// <summary>
+    /// Verifies that Result comparison treats Err as less than Ok and compares same-state values by their contained error or success value.
+    /// Use this test to guard sorting and relational operator behavior for Result; it has no input, returns no value, and reports regressions through assertions.
+    /// </summary>
     [Fact]
     public void Result_CompareTo_ShouldWorkCorrectly()
     {
@@ -58,6 +71,10 @@ public class ComparisonTests
         Assert.True(ok1 < ok2);
     }
 
+    /// <summary>
+    /// Verifies that comparing initialized Result values with a default, uninitialized Result throws InvalidOperationException instead of producing a misleading ordering.
+    /// Use this test to preserve the safety boundary around poisoned default structs; it accepts no input, returns void, and expects explicit exceptions as the test output.
+    /// </summary>
     [Fact]
     public void Result_CompareTo_Uninitialized_Throws()
     {

@@ -6,8 +6,17 @@ file record CreateUserRequest(string Name, string Email);
 
 file record UserDto(int Id, string Name, string Email);
 
+/// <summary>
+/// Runs application-style scenarios that use Option and Result to model validation, lookup, parsing, and workflow failures.
+/// This sample exists to bridge API reference examples and realistic business logic where absence and expected errors must stay explicit.
+/// It accepts no input, returns no value, and writes the simulated workflow results to the console.
+/// </summary>
 public static class E10RealWorldScenarios
 {
+    /// <summary>
+    /// Executes the real-world scenario walkthrough in a stable order so the console output shows how the library behaves in end-to-end flows.
+    /// Use this method from the examples program; it takes no parameters, returns void, and relies only on local sample data.
+    /// </summary>
     public static void Run()
     {
         ConsoleHelper.PrintHeader("E10 - Real-World Scenarios: Practical Patterns with Option & Result");

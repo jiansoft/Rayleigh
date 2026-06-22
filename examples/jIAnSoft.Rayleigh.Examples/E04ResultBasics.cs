@@ -2,8 +2,17 @@ using jIAnSoft.Rayleigh.Examples.Helpers;
 
 namespace jIAnSoft.Rayleigh.Examples;
 
+/// <summary>
+/// Runs the introductory Result examples that explain success and error states, matching, unwrapping, and basic comparison semantics.
+/// This sample exists to teach when Result should replace exception-driven flow for expected domain failures.
+/// It has no input parameters, emits console output, and is intended for interactive understanding rather than application logic.
+/// </summary>
 public static class E04ResultBasics
 {
+    /// <summary>
+    /// Executes the complete Result basics walkthrough so the console shows how Ok and Err values are created, checked, and consumed.
+    /// Use this method from the examples program; it takes no input, returns no value, and writes all demonstration results to the console.
+    /// </summary>
     public static void Run()
     {
         ConsoleHelper.PrintHeader("E04 - Result Basics: Creating, Checking, and Comparing");

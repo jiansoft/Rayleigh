@@ -2,6 +2,11 @@ using Xunit;
 
 namespace jIAnSoft.Rayleigh.Tests;
 
+/// <summary>
+/// Contains behavioral tests for Result construction, success and error state handling, transformations, extraction, LINQ support, equality, comparison, and default-struct safeguards.
+/// This class exists as the executable specification for railway-style Result flow: Ok carries a successful value, Err carries an expected failure, and uninitialized values must not silently behave like valid results.
+/// Individual tests accept no caller-supplied input, return no values, and use xUnit assertions and expected exceptions to describe the required contract.
+/// </summary>
 public class ResultTests
 {
     // ================================================================

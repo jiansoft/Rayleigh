@@ -4,8 +4,17 @@ namespace jIAnSoft.Rayleigh.Examples;
 
 file record CustomError(string Code, string Message);
 
+/// <summary>
+/// Runs examples that convert between Option and Result so missing values can be upgraded into explicit errors or projected back into optional values.
+/// This sample exists to teach when absence should stay as None and when it should become an Err with a concrete failure reason.
+/// It accepts no input, returns no data, and writes all observable behavior to the console.
+/// </summary>
 public static class E07OptionResultInterop
 {
+    /// <summary>
+    /// Executes the Option and Result interop walkthrough in a fixed sequence for easy comparison of conversion behavior.
+    /// Use this method from the examples program; it takes no parameters, returns void, and its only side effect is console output.
+    /// </summary>
     public static void Run()
     {
         ConsoleHelper.PrintHeader("E07 - Option / Result Interop: Converting Between Types");

@@ -2,6 +2,11 @@ using Xunit;
 
 namespace jIAnSoft.Rayleigh.Tests;
 
+/// <summary>
+/// Contains behavioral tests for Option construction, state inspection, transformations, extraction, LINQ support, equality, comparison, and edge cases.
+/// This class exists as the executable specification for the optional-value contract: Some carries a non-null value, None represents absence, and operations must preserve or short-circuit that state predictably.
+/// Individual test methods take no external input, return no data, and communicate success or failure only through xUnit assertions.
+/// </summary>
 public class OptionTests
 {
     #region Factory Methods / Construction

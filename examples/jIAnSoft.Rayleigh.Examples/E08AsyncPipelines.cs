@@ -5,8 +5,18 @@ namespace jIAnSoft.Rayleigh.Examples;
 file record User(int Id, string Name);
 file record Order(int Id, int UserId, decimal Total);
 
+/// <summary>
+/// Runs asynchronous pipeline examples for Result and Option extension methods that operate on Task and ValueTask.
+/// This sample exists to show how async work can preserve short-circuiting and transformation semantics without manually awaiting and branching after every step.
+/// It accepts no constructor state, writes demonstration output to the console, and uses in-memory sample data rather than external services.
+/// </summary>
 public static class E08AsyncPipelines
 {
+    /// <summary>
+    /// Executes all async pipeline demos in sequence, awaiting each section so the console output remains ordered and easy to read.
+    /// Use this method from the examples program when demonstrating Task and ValueTask helpers; it accepts no input and returns a <see cref="Task"/> that completes after all console output has been written.
+    /// </summary>
+    /// <returns>A task representing the full asynchronous examples run; the task has no result value and completes when every demo section has finished.</returns>
     public static async Task RunAsync()
     {
         ConsoleHelper.PrintHeader("E08 - Async Pipelines: BindAsync, MapAsync, TapAsync, and More");

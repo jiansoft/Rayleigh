@@ -4,8 +4,17 @@ namespace jIAnSoft.Rayleigh.Examples;
 
 file record AgeRecord(int Age, string Label);
 
+/// <summary>
+/// Runs examples for transforming Result values with Map, MapErr, Bind, fallback helpers, and observation helpers.
+/// This sample exists to show how successful values and errors move through a pipeline without changing method signatures to throw exceptions.
+/// It accepts no input, returns no data, and uses console output to make each transformation result visible.
+/// </summary>
 public static class E05ResultTransformations
 {
+    /// <summary>
+    /// Executes the Result transformation walkthrough in a fixed sequence so success mapping, error mapping, binding, fallback, and tap behavior can be compared.
+    /// Use this method from the examples program; it has no parameters, returns void, and writes formatted demonstration output.
+    /// </summary>
     public static void Run()
     {
         ConsoleHelper.PrintHeader("E05 - Result Transformations: Map, Bind, Flatten, and Pipelines");

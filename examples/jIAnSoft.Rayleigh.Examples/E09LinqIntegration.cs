@@ -6,8 +6,17 @@ file record Customer(int Id, string Name);
 file record Address(int CustomerId, string City);
 file record Invoice(int Id, int CustomerId, decimal Total);
 
+/// <summary>
+/// Runs examples that use LINQ query syntax with Option and Result values.
+/// This sample exists to show how Select and SelectMany enable readable multi-step composition while preserving None and Err short-circuit behavior.
+/// It takes no input, returns no data, and writes each query result to the console.
+/// </summary>
 public static class E09LinqIntegration
 {
+    /// <summary>
+    /// Executes the LINQ integration walkthrough in one console run so Option and Result query behavior can be compared side by side.
+    /// Use this method from the examples program; it has no parameters, returns void, and performs console output as its only side effect.
+    /// </summary>
     public static void Run()
     {
         ConsoleHelper.PrintHeader("E09 - LINQ Integration: Query Syntax with Option and Result");

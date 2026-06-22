@@ -2,8 +2,17 @@ using jIAnSoft.Rayleigh.Examples.Helpers;
 
 namespace jIAnSoft.Rayleigh.Examples;
 
+/// <summary>
+/// Runs the introductory Option examples that show how to create, inspect, compare, and safely consume optional values.
+/// This sample exists as the first runnable walkthrough for developers who need to understand the meaning of Some and None before using the rest of the library.
+/// It has no input parameters, writes demonstration output to the console, and is intended for interactive learning rather than production control flow.
+/// </summary>
 public static class E01OptionBasics
 {
+    /// <summary>
+    /// Executes the complete Option basics walkthrough in a fixed order so the console output explains construction, state checks, containment checks, equality, and common mistakes.
+    /// Use this method from the examples program when you want a visible, side-effect-only demonstration; it accepts no input, returns no value, and writes all results through <see cref="Helpers.ConsoleHelper"/>.
+    /// </summary>
     public static void Run()
     {
         ConsoleHelper.PrintHeader("E01 - Option Basics: Creating, Checking, and Comparing");

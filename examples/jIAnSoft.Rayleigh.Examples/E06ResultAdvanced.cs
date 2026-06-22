@@ -4,8 +4,17 @@ namespace jIAnSoft.Rayleigh.Examples;
 
 file record Config(string Key, string Value);
 
+/// <summary>
+/// Runs advanced Result examples for LINQ query syntax, conversion to Option, explicit error extraction, and richer workflow composition.
+/// This sample exists for developers who understand Ok and Err and need to see Result used in multi-step application-style flows.
+/// It takes no input, returns no value, and writes console output for manual review.
+/// </summary>
 public static class E06ResultAdvanced
 {
+    /// <summary>
+    /// Executes the advanced Result walkthrough in a stable order so each feature can be inspected from the console output.
+    /// Use this method from the examples program; it accepts no parameters, returns void, and does not mutate project state.
+    /// </summary>
     public static void Run()
     {
         ConsoleHelper.PrintHeader("E06 - Result Advanced: Recovery, Side Effects, Unwrapping, and More");

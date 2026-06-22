@@ -2,8 +2,17 @@ using jIAnSoft.Rayleigh.Examples.Helpers;
 
 namespace jIAnSoft.Rayleigh.Examples;
 
+/// <summary>
+/// Runs examples of common mistakes and edge cases when using Option and Result.
+/// This sample exists to make incorrect assumptions visible, such as treating default values as absence or unwrapping without checking state.
+/// It has no input parameters, returns no value, and writes guidance-oriented output to the console.
+/// </summary>
 public static class E11CommonPitfalls
 {
+    /// <summary>
+    /// Executes the common pitfalls walkthrough so users can see unsafe and safe patterns in one console run.
+    /// Use this method from the examples program; it accepts no input, returns void, and intentionally prints examples rather than changing application state.
+    /// </summary>
     public static void Run()
     {
         ConsoleHelper.PrintHeader("E11 - Common Pitfalls: 12 Mistakes to Avoid with Option & Result");

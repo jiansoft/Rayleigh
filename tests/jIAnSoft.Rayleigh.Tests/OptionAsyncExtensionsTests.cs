@@ -15,6 +15,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 BindAsync 在 Some 狀態下呼叫 binder 並回傳其結果。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task BindAsync_Task_Some_CallsBinderAndReturnsResult()
     {
@@ -30,6 +31,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 BindAsync 在 None 狀態下不呼叫 binder，直接回傳 None。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task BindAsync_Task_None_DoesNotCallBinderAndReturnsNone()
     {
@@ -49,6 +51,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 BindAsync 在 Some 狀態下，當 binder 回傳 None 時結果為 None。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task BindAsync_Task_Some_BinderReturnsNone_ReturnsNone()
     {
@@ -67,6 +70,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 MapAsync 在 Some 狀態下呼叫 mapper 並將結果包裝為 Some。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task MapAsync_Task_Some_CallsMapperAndReturnsSome()
     {
@@ -81,6 +85,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 MapAsync 在 None 狀態下不呼叫 mapper，直接回傳 None。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task MapAsync_Task_None_DoesNotCallMapperAndReturnsNone()
     {
@@ -100,6 +105,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 MapAsync 可以轉換值類型，例如 int 轉換為 string。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task MapAsync_Task_Some_TransformsType()
     {
@@ -118,6 +124,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 OrElseAsync 在 Some 狀態下回傳自身，不呼叫 factory。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task OrElseAsync_Task_Some_ReturnsSelfAndDoesNotCallFactory()
     {
@@ -138,6 +145,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 OrElseAsync 在 None 狀態下呼叫 factory 並回傳其結果。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task OrElseAsync_Task_None_CallsFactoryAndReturnsResult()
     {
@@ -153,6 +161,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 OrElseAsync 在 None 狀態下，當 factory 也回傳 None 時結果為 None。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task OrElseAsync_Task_None_FactoryReturnsNone_ReturnsNone()
     {
@@ -171,6 +180,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 BindAsync 在 Some 狀態下呼叫 binder 並回傳其結果。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task BindAsync_ValueTask_Some_CallsBinderAndReturnsResult()
     {
@@ -186,6 +196,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 BindAsync 在 None 狀態下不呼叫 binder，直接回傳 None。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task BindAsync_ValueTask_None_DoesNotCallBinderAndReturnsNone()
     {
@@ -205,6 +216,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 BindAsync 在 Some 狀態下，當 binder 回傳 None 時結果為 None。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task BindAsync_ValueTask_Some_BinderReturnsNone_ReturnsNone()
     {
@@ -223,6 +235,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 MapAsync 在 Some 狀態下呼叫 mapper 並將結果包裝為 Some。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task MapAsync_ValueTask_Some_CallsMapperAndReturnsSome()
     {
@@ -237,6 +250,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 MapAsync 在 None 狀態下不呼叫 mapper，直接回傳 None。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task MapAsync_ValueTask_None_DoesNotCallMapperAndReturnsNone()
     {
@@ -256,6 +270,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 MapAsync 可以轉換值類型，例如 int 轉換為 string。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task MapAsync_ValueTask_Some_TransformsType()
     {
@@ -274,6 +289,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 OrElseAsync 在 Some 狀態下回傳自身，不呼叫 factory。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task OrElseAsync_ValueTask_Some_ReturnsSelfAndDoesNotCallFactory()
     {
@@ -294,6 +310,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 OrElseAsync 在 None 狀態下呼叫 factory 並回傳其結果。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task OrElseAsync_ValueTask_None_CallsFactoryAndReturnsResult()
     {
@@ -309,6 +326,7 @@ public class OptionAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 OrElseAsync 在 None 狀態下，當 factory 也回傳 None 時結果為 None。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task OrElseAsync_ValueTask_None_FactoryReturnsNone_ReturnsNone()
     {

@@ -16,6 +16,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 BindAsync 在 Ok 狀態下呼叫 binder 並回傳其結果。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task BindAsync_Task_Ok_CallsBinderAndReturnsResult()
     {
@@ -31,6 +32,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 BindAsync 在 Err 狀態下不呼叫 binder，直接傳遞錯誤。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task BindAsync_Task_Err_DoesNotCallBinderAndPassesThroughError()
     {
@@ -51,6 +53,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 BindAsync 在 Ok 狀態下，當 binder 回傳 Err 時結果為 Err。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task BindAsync_Task_Ok_BinderReturnsErr_ReturnsErr()
     {
@@ -70,6 +73,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 MapAsync 在 Ok 狀態下呼叫 mapper 並將結果包裝為 Ok。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task MapAsync_Task_Ok_CallsMapperAndReturnsOk()
     {
@@ -84,6 +88,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 MapAsync 在 Err 狀態下不呼叫 mapper，直接傳遞錯誤。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task MapAsync_Task_Err_DoesNotCallMapperAndPassesThroughError()
     {
@@ -104,6 +109,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 MapAsync 可以將 int 轉換為 string 類型。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task MapAsync_Task_Ok_TransformsType()
     {
@@ -122,6 +128,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 MapErrAsync 在 Err 狀態下呼叫 mapper 並轉換錯誤類型。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task MapErrAsync_Task_Err_CallsMapperAndTransformsError()
     {
@@ -137,6 +144,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 MapErrAsync 在 Ok 狀態下不呼叫 mapper，直接傳遞成功值。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task MapErrAsync_Task_Ok_DoesNotCallMapperAndPassesThroughValue()
     {
@@ -161,6 +169,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 OrElseAsync 在 Ok 狀態下回傳自身，不呼叫 factory。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task OrElseAsync_Task_Ok_ReturnsSelfAndDoesNotCallFactory()
     {
@@ -182,6 +191,7 @@ public class ResultAsyncExtensionsTests
     /// 驗證 Task 版本的 OrElseAsync 在 Err 狀態下呼叫 factory，
     /// 並將錯誤值傳遞給 factory 作為參數。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task OrElseAsync_Task_Err_CallsFactoryWithErrorAndReturnsResult()
     {
@@ -202,6 +212,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 OrElseAsync 在 Err 狀態下，當 factory 也回傳 Err 時結果為 Err。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task OrElseAsync_Task_Err_FactoryReturnsErr_ReturnsErr()
     {
@@ -221,6 +232,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 TapAsync 在 Ok 狀態下執行 action 且回傳原始 Result 不變。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task TapAsync_Task_Ok_ExecutesActionAndReturnsSameResult()
     {
@@ -244,6 +256,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 TapAsync 在 Err 狀態下不執行 action，回傳原始錯誤。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task TapAsync_Task_Err_DoesNotExecuteAction()
     {
@@ -268,6 +281,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 TapErrAsync 在 Err 狀態下執行 action 且回傳原始 Result 不變。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task TapErrAsync_Task_Err_ExecutesActionAndReturnsSameResult()
     {
@@ -291,6 +305,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 Task 版本的 TapErrAsync 在 Ok 狀態下不執行 action，回傳原始成功值。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task TapErrAsync_Task_Ok_DoesNotExecuteAction()
     {
@@ -315,6 +330,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 BindAsync 在 Ok 狀態下呼叫 binder 並回傳其結果。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task BindAsync_ValueTask_Ok_CallsBinderAndReturnsResult()
     {
@@ -330,6 +346,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 BindAsync 在 Err 狀態下不呼叫 binder，直接傳遞錯誤。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task BindAsync_ValueTask_Err_DoesNotCallBinderAndPassesThroughError()
     {
@@ -350,6 +367,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 BindAsync 在 Ok 狀態下，當 binder 回傳 Err 時結果為 Err。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task BindAsync_ValueTask_Ok_BinderReturnsErr_ReturnsErr()
     {
@@ -369,6 +387,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 MapAsync 在 Ok 狀態下呼叫 mapper 並將結果包裝為 Ok。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task MapAsync_ValueTask_Ok_CallsMapperAndReturnsOk()
     {
@@ -383,6 +402,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 MapAsync 在 Err 狀態下不呼叫 mapper，直接傳遞錯誤。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task MapAsync_ValueTask_Err_DoesNotCallMapperAndPassesThroughError()
     {
@@ -403,6 +423,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 MapAsync 可以將 int 轉換為 string 類型。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task MapAsync_ValueTask_Ok_TransformsType()
     {
@@ -421,6 +442,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 MapErrAsync 在 Err 狀態下呼叫 mapper 並轉換錯誤類型。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task MapErrAsync_ValueTask_Err_CallsMapperAndTransformsError()
     {
@@ -436,6 +458,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 MapErrAsync 在 Ok 狀態下不呼叫 mapper，直接傳遞成功值。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task MapErrAsync_ValueTask_Ok_DoesNotCallMapperAndPassesThroughValue()
     {
@@ -460,6 +483,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 OrElseAsync 在 Ok 狀態下回傳自身，不呼叫 factory。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task OrElseAsync_ValueTask_Ok_ReturnsSelfAndDoesNotCallFactory()
     {
@@ -481,6 +505,7 @@ public class ResultAsyncExtensionsTests
     /// 驗證 ValueTask 版本的 OrElseAsync 在 Err 狀態下呼叫 factory，
     /// 並將錯誤值傳遞給 factory 作為參數。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task OrElseAsync_ValueTask_Err_CallsFactoryWithErrorAndReturnsResult()
     {
@@ -501,6 +526,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 OrElseAsync 在 Err 狀態下，當 factory 也回傳 Err 時結果為 Err。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task OrElseAsync_ValueTask_Err_FactoryReturnsErr_ReturnsErr()
     {
@@ -520,6 +546,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 TapAsync 在 Ok 狀態下執行 action 且回傳原始 Result 不變。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task TapAsync_ValueTask_Ok_ExecutesActionAndReturnsSameResult()
     {
@@ -543,6 +570,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 TapAsync 在 Err 狀態下不執行 action，回傳原始錯誤。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task TapAsync_ValueTask_Err_DoesNotExecuteAction()
     {
@@ -567,6 +595,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 TapErrAsync 在 Err 狀態下執行 action 且回傳原始 Result 不變。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task TapErrAsync_ValueTask_Err_ExecutesActionAndReturnsSameResult()
     {
@@ -590,6 +619,7 @@ public class ResultAsyncExtensionsTests
     /// <summary>
     /// 驗證 ValueTask 版本的 TapErrAsync 在 Ok 狀態下不執行 action，回傳原始成功值。
     /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
     [Fact]
     public async Task TapErrAsync_ValueTask_Ok_DoesNotExecuteAction()
     {

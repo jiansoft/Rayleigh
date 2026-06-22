@@ -5,8 +5,17 @@ namespace jIAnSoft.Rayleigh.Examples;
 file record User(int Id, string Name);
 file record Address(string City, string Street);
 
+/// <summary>
+/// Runs examples for transforming Option values with mapping, filtering, binding, fallback, and side-effect helpers.
+/// This sample exists to show when an optional value should be transformed in place instead of being manually unwrapped and checked for None.
+/// It accepts no input, produces console output only, and should be used as an educational scenario for Option pipeline behavior.
+/// </summary>
 public static class E02OptionTransformations
 {
+    /// <summary>
+    /// Executes the Option transformation walkthrough from simple Map calls through chained functional composition.
+    /// Use this method from the examples program when you need a complete console demonstration; it has no parameters, returns no value, and the only side effect is writing formatted output.
+    /// </summary>
     public static void Run()
     {
         ConsoleHelper.PrintHeader("E02 - Option Transformations: Map, Filter, Bind, Flatten");
