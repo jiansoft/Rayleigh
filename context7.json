@@ -1,0 +1,49 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "Rayleigh",
+  "description": "Zero-allocation, Rust-inspired Option<T>, Result<T, E>, and Unit primitives for C# on .NET 8 and .NET 10, with LINQ, asynchronous, and pattern-matching integrations.",
+  "folders": [
+    "src/jIAnSoft.Rayleigh"
+  ],
+  "excludeFolders": [
+    ".git",
+    ".github",
+    ".idea",
+    ".antigravitycli",
+    "artifacts",
+    "bin",
+    "obj",
+    "examples",
+    "tests",
+    "**/bin",
+    "**/obj"
+  ],
+  "excludeFiles": [
+    "*.user",
+    "*.suo",
+    "*.DotSettings",
+    "*.lock.json",
+    "*.nupkg",
+    "*.snupkg"
+  ],
+  "rules": [
+    "Use the root README.md and README.zh-TW.md as the primary user-facing documentation. The English README is the canonical API narrative; use the Traditional Chinese README only as a language-equivalent guide.",
+    "Treat files under src/jIAnSoft.Rayleigh as the authoritative implementation and source of truth for all public APIs, generic constraints, nullability annotations, exceptions, and performance behavior.",
+    "The published NuGet package is jIAnSoft.Rayleigh. Show installation with dotnet add package jIAnSoft.Rayleigh and examples with using jIAnSoft.Rayleigh; unless the question requires a fully qualified name.",
+    "This library targets net8.0 and net10.0. Prefer APIs, language features, and examples compatible with both target frameworks unless a question explicitly names one target.",
+    "Option<T>, Result<T, TE>, and Unit are readonly value types designed for zero-allocation ordinary control flow. Do not suggest changing them to classes, replacing them with exceptions, or adding reflection or third-party functional-programming dependencies without an explicit requirement.",
+    "Use Option<T> when absence is an expected outcome and the caller does not need a reason. Use Result<T, TE> when an operation can fail and the caller needs a typed error value.",
+    "Preserve Option's Some/None and Result's Ok/Err semantics. Explain that Map transforms a contained success value, Bind chains an operation that already returns the same wrapper type, and failure or absence short-circuits subsequent operations.",
+    "Respect the notnull generic constraints on Option<T>, Result<T, TE>, and their relevant combinators. Do not show nullable generic arguments as valid values where the public API rejects them.",
+    "Prefer the library's documented factory methods, implicit conversions, Match, TryGetValue or TryGetOk, Map, Bind, Filter, OrElse, Tap, and LINQ Select or SelectMany support when they fit the user's scenario.",
+    "Explain Unwrap and UnwrapErr as assertion-style operations that throw on the opposite state. Prefer Match, TryGetValue or TryGetOk, UnwrapOr, or UnwrapOrElse in ordinary application-flow examples.",
+    "For asynchronous workflows, use the Task and ValueTask extension methods under Extensions, including BindAsync, MapAsync, MapErrAsync, TapAsync, TapErrAsync, and OrElseAsync, only when the source and callback shapes match the documented overloads.",
+    "Use Option<T>.ToResult(error) or ToResult(errorFactory) when converting absence into an error, and Result<T, TE>.ToOption() when intentionally discarding an error. State the lost error information when explaining the latter conversion.",
+    "Do not infer unsupported members, overloads, framework integrations, serialization behavior, thread-safety guarantees, or performance claims. Verify each claim against the source before presenting it as available.",
+    "Keep generated output, test-only behavior, examples, editor metadata, repository automation, and package artifacts out of the primary API documentation context. Use them only when a question explicitly concerns testing, examples, CI, packaging, or repository maintenance.",
+    "previousVersions is intentionally empty because this repository currently has no Git version tags. Add an object of the form {\"tag\": \"vX.Y.Z\"} only after that exact historical release tag exists in the repository.",
+    "branchVersions is intentionally empty because Context7 already parses the repository's default master branch. Add an object of the form {\"branch\": \"release/X.Y\"} only when a separate maintained documentation branch should be exposed as another version."
+  ],
+  "previousVersions": [],
+  "branchVersions": []
+}
