@@ -137,17 +137,6 @@ public class ResultTests
     }
 
     /// <summary>
-    /// 驗證 Contains 在未初始化（default struct）狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Contains_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.Contains(42));
-    }
-
-    /// <summary>
     /// 驗證 ContainsErr 在失敗狀態下，當錯誤匹配時回傳 true。
     /// </summary>
     [Fact]
@@ -178,17 +167,6 @@ public class ResultTests
         var result = Result<int, string>.Ok(42);
 
         Assert.False(result.ContainsErr("error"));
-    }
-
-    /// <summary>
-    /// 驗證 ContainsErr 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void ContainsErr_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.ContainsErr("error"));
     }
 
     // ================================================================
@@ -237,17 +215,6 @@ public class ResultTests
     }
 
     /// <summary>
-    /// 驗證 IsOkAnd 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void IsOkAnd_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.IsOkAnd(_ => true));
-    }
-
-    /// <summary>
     /// 驗證 IsErrAnd 在失敗狀態下，當條件成立時回傳 true。
     /// </summary>
     [Fact]
@@ -288,17 +255,6 @@ public class ResultTests
         Assert.False(predicateCalled);
     }
 
-    /// <summary>
-    /// 驗證 IsErrAnd 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void IsErrAnd_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.IsErrAnd(_ => true));
-    }
-
     // ================================================================
     // Match (with return value)
     // ================================================================
@@ -333,20 +289,6 @@ public class ResultTests
         );
 
         Assert.Equal("error=fail", message);
-    }
-
-    /// <summary>
-    /// 驗證有回傳值的 Match 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Match_WithReturn_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.Match(
-            ok: v => v,
-            err: _ => 0
-        ));
     }
 
     // ================================================================
@@ -391,20 +333,6 @@ public class ResultTests
         Assert.True(errCalled);
     }
 
-    /// <summary>
-    /// 驗證無回傳值的 Match 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void MatchAction_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.Match(
-            ok: _ => { },
-            err: _ => { }
-        ));
-    }
-
     // ================================================================
     // Map
     // ================================================================
@@ -443,17 +371,6 @@ public class ResultTests
         Assert.False(mapperCalled);
     }
 
-    /// <summary>
-    /// 驗證 Map 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Map_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.Map(x => x * 2));
-    }
-
     // ================================================================
     // MapErr
     // ================================================================
@@ -490,17 +407,6 @@ public class ResultTests
         Assert.True(mapped.IsOk);
         Assert.Equal(42, mapped.Unwrap());
         Assert.False(mapperCalled);
-    }
-
-    /// <summary>
-    /// 驗證 MapErr 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void MapErr_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.MapErr(e => e.Length));
     }
 
     // ================================================================
@@ -559,19 +465,6 @@ public class ResultTests
         Assert.False(binderCalled);
     }
 
-    /// <summary>
-    /// 驗證 Bind 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Bind_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(
-            () => result.Bind(x => Result<string, string>.Ok($"{x}"))
-        );
-    }
-
     // ================================================================
     // Or
     // ================================================================
@@ -602,19 +495,6 @@ public class ResultTests
         var actual = result.Or(other);
 
         Assert.Equal(999, actual.Unwrap());
-    }
-
-    /// <summary>
-    /// 驗證 Or 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Or_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(
-            () => result.Or(Result<int, string>.Ok(1))
-        );
     }
 
     // ================================================================
@@ -654,19 +534,6 @@ public class ResultTests
         Assert.Equal(4, actual.Unwrap());
     }
 
-    /// <summary>
-    /// 驗證 OrElse 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void OrElse_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(
-            () => result.OrElse(_ => Result<int, string>.Ok(1))
-        );
-    }
-
     // ================================================================
     // Tap
     // ================================================================
@@ -699,17 +566,6 @@ public class ResultTests
 
         Assert.False(actionCalled);
         Assert.Equal(result, returned);
-    }
-
-    /// <summary>
-    /// 驗證 Tap 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Tap_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.Tap(_ => { }));
     }
 
     // ================================================================
@@ -746,17 +602,6 @@ public class ResultTests
         Assert.Equal(result, returned);
     }
 
-    /// <summary>
-    /// 驗證 TapErr 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void TapErr_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.TapErr(_ => { }));
-    }
-
     // ================================================================
     // TryGetOk (single out)
     // ================================================================
@@ -787,17 +632,6 @@ public class ResultTests
 
         Assert.False(success);
         Assert.Equal(default, value);
-    }
-
-    /// <summary>
-    /// 驗證 TryGetOk（單一 out 參數）在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void TryGetOk_SingleOut_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.TryGetOk(out _));
     }
 
     // ================================================================
@@ -834,17 +668,6 @@ public class ResultTests
         Assert.Equal("fail", error);
     }
 
-    /// <summary>
-    /// 驗證 TryGetOk（雙 out 參數）在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void TryGetOk_DoubleOut_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.TryGetOk(out _, out _));
-    }
-
     // ================================================================
     // TryGetErr
     // ================================================================
@@ -877,17 +700,6 @@ public class ResultTests
         Assert.Null(error);
     }
 
-    /// <summary>
-    /// 驗證 TryGetErr 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void TryGetErr_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.TryGetErr(out _));
-    }
-
     // ================================================================
     // Unwrap
     // ================================================================
@@ -915,17 +727,6 @@ public class ResultTests
         Assert.Contains("fail", ex.Message);
     }
 
-    /// <summary>
-    /// 驗證 Unwrap 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Unwrap_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.Unwrap());
-    }
-
     // ================================================================
     // UnwrapOr
     // ================================================================
@@ -950,17 +751,6 @@ public class ResultTests
         var result = Result<int, string>.Err("fail");
 
         Assert.Equal(0, result.UnwrapOr(0));
-    }
-
-    /// <summary>
-    /// 驗證 UnwrapOr 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void UnwrapOr_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.UnwrapOr(0));
     }
 
     // ================================================================
@@ -999,17 +789,6 @@ public class ResultTests
         Assert.Equal(4, value);
     }
 
-    /// <summary>
-    /// 驗證 UnwrapOrElse 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void UnwrapOrElse_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.UnwrapOrElse(_ => 0));
-    }
-
     // ================================================================
     // Expect
     // ================================================================
@@ -1039,17 +818,6 @@ public class ResultTests
         Assert.Equal("custom error message", ex.Message);
     }
 
-    /// <summary>
-    /// 驗證 Expect 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Expect_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.Expect("msg"));
-    }
-
     // ================================================================
     // UnwrapErr
     // ================================================================
@@ -1072,17 +840,6 @@ public class ResultTests
     public void UnwrapErr_Ok_ThrowsInvalidOperationException()
     {
         var result = Result<int, string>.Ok(42);
-
-        Assert.Throws<InvalidOperationException>(() => result.UnwrapErr());
-    }
-
-    /// <summary>
-    /// 驗證 UnwrapErr 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void UnwrapErr_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
 
         Assert.Throws<InvalidOperationException>(() => result.UnwrapErr());
     }
@@ -1116,17 +873,6 @@ public class ResultTests
         Assert.Equal("expected error but got ok", ex.Message);
     }
 
-    /// <summary>
-    /// 驗證 ExpectErr 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void ExpectErr_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.ExpectErr("msg"));
-    }
-
     // ================================================================
     // ToOption
     // ================================================================
@@ -1158,17 +904,6 @@ public class ResultTests
         Assert.True(option.IsNone);
     }
 
-    /// <summary>
-    /// 驗證 ToOption 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void ToOption_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.ToOption());
-    }
-
     // ================================================================
     // Err() (returns error as Option)
     // ================================================================
@@ -1198,17 +933,6 @@ public class ResultTests
         var option = result.Err();
 
         Assert.True(option.IsNone);
-    }
-
-    /// <summary>
-    /// 驗證 Err() 方法在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void ErrMethod_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.Err());
     }
 
     // ================================================================
@@ -1296,22 +1020,6 @@ public class ResultTests
 
         Assert.True(combined.IsErr);
         Assert.Equal("second error", combined.UnwrapErr());
-    }
-
-    /// <summary>
-    /// 驗證 SelectMany 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void SelectMany_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() =>
-            result.SelectMany(
-                x => Result<int, string>.Ok(x),
-                (a, b) => a + b
-            )
-        );
     }
 
     // ================================================================
@@ -1414,19 +1122,6 @@ public class ResultTests
         Assert.Equal("default", value);
     }
 
-    /// <summary>
-    /// 驗證 MapOr 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void MapOr_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(
-            () => result.MapOr("default", v => $"{v}")
-        );
-    }
-
     // ================================================================
     // MapOrElse
     // ================================================================
@@ -1461,19 +1156,6 @@ public class ResultTests
         );
 
         Assert.Equal("error=fail", value);
-    }
-
-    /// <summary>
-    /// 驗證 MapOrElse 在未初始化狀態下拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void MapOrElse_Uninitialized_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(
-            () => result.MapOrElse(_ => "fallback", v => $"{v}")
-        );
     }
 
     // ================================================================
@@ -1705,7 +1387,7 @@ public class ResultTests
     // ================================================================
 
     /// <summary>
-    /// 驗證未初始化的 Result（default struct）的 IsOk 為 false、IsErr 為 true。
+    /// 驗證未初始化的 Result（default struct）的 IsOk 為 false、IsErr 為 true——這兩個屬性本身是單純的欄位讀取，不會拋出例外。
     /// </summary>
     [Fact]
     public void Uninitialized_IsOkIsFalse_IsErrIsTrue()
@@ -1717,314 +1399,59 @@ public class ResultTests
     }
 
     /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 Match（有回傳值）時拋出 InvalidOperationException。
+    /// 列舉所有「未初始化 Result 應拋出 InvalidOperationException」的操作，供 <see cref="Operation_OnUninitializedResult_ThrowsInvalidOperationException"/> 使用。
+    /// 新增一個會存取 <c>_value</c>/<c>_error</c> 的方法時，只需在此補上一筆資料即可獲得覆蓋，不需要複製整個測試方法。
     /// </summary>
-    [Fact]
-    public void Uninitialized_MatchWithReturn_ThrowsInvalidOperationException()
+    public static IEnumerable<object[]> UninitializedThrowingOperations()
     {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(
-            () => result.Match(v => v, _ => 0)
-        );
+        yield return new object[] { "Contains", (Action<Result<int, string>>)(r => r.Contains(0)) };
+        yield return new object[] { "ContainsErr", (Action<Result<int, string>>)(r => r.ContainsErr("e")) };
+        yield return new object[] { "IsOkAnd", (Action<Result<int, string>>)(r => r.IsOkAnd(_ => true)) };
+        yield return new object[] { "IsErrAnd", (Action<Result<int, string>>)(r => r.IsErrAnd(_ => true)) };
+        yield return new object[] { "Match(TResult)", (Action<Result<int, string>>)(r => r.Match(v => v, _ => 0)) };
+        yield return new object[] { "Match(Action)", (Action<Result<int, string>>)(r => r.Match(_ => { }, _ => { })) };
+        yield return new object[] { "Map", (Action<Result<int, string>>)(r => r.Map(x => x)) };
+        yield return new object[] { "MapErr", (Action<Result<int, string>>)(r => r.MapErr(e => e)) };
+        yield return new object[] { "Bind", (Action<Result<int, string>>)(r => r.Bind(x => Result<int, string>.Ok(x))) };
+        yield return new object[] { "Or", (Action<Result<int, string>>)(r => r.Or(Result<int, string>.Ok(1))) };
+        yield return new object[] { "OrElse", (Action<Result<int, string>>)(r => r.OrElse(_ => Result<int, string>.Ok(1))) };
+        yield return new object[] { "Tap", (Action<Result<int, string>>)(r => r.Tap(_ => { })) };
+        yield return new object[] { "TapErr", (Action<Result<int, string>>)(r => r.TapErr(_ => { })) };
+        yield return new object[] { "TryGetOk(1 out)", (Action<Result<int, string>>)(r => r.TryGetOk(out _)) };
+        yield return new object[] { "TryGetOk(2 out)", (Action<Result<int, string>>)(r => r.TryGetOk(out _, out _)) };
+        yield return new object[] { "TryGetErr", (Action<Result<int, string>>)(r => r.TryGetErr(out _)) };
+        yield return new object[] { "Unwrap", (Action<Result<int, string>>)(r => r.Unwrap()) };
+        yield return new object[] { "UnwrapOr", (Action<Result<int, string>>)(r => r.UnwrapOr(0)) };
+        yield return new object[] { "UnwrapOrElse", (Action<Result<int, string>>)(r => r.UnwrapOrElse(_ => 0)) };
+        yield return new object[] { "Expect", (Action<Result<int, string>>)(r => r.Expect("msg")) };
+        yield return new object[] { "UnwrapErr", (Action<Result<int, string>>)(r => r.UnwrapErr()) };
+        yield return new object[] { "ExpectErr", (Action<Result<int, string>>)(r => r.ExpectErr("msg")) };
+        yield return new object[] { "ToOption", (Action<Result<int, string>>)(r => r.ToOption()) };
+        yield return new object[] { "Err", (Action<Result<int, string>>)(r => r.Err()) };
+        yield return new object[] { "MapOr", (Action<Result<int, string>>)(r => r.MapOr("default", v => $"{v}")) };
+        yield return new object[] { "MapOrElse", (Action<Result<int, string>>)(r => r.MapOrElse(_ => "fallback", v => $"{v}")) };
+        yield return new object[] { "Select", (Action<Result<int, string>>)(r => r.Select(x => x)) };
+        yield return new object[]
+        {
+            "SelectMany", (Action<Result<int, string>>)(r => r.SelectMany(x => Result<int, string>.Ok(x), (a, b) => a + b))
+        };
     }
 
     /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 Match（無回傳值）時拋出 InvalidOperationException。
+    /// 驗證會存取內部值／錯誤的每一個公開操作，在未初始化（default struct）的 Result 上呼叫時都會拋出 InvalidOperationException。
     /// </summary>
-    [Fact]
-    public void Uninitialized_MatchAction_ThrowsInvalidOperationException()
+    /// <param name="operationName">操作名稱，用於在測試總管中識別是哪一筆資料失敗，並確保 <see cref="UninitializedThrowingOperations"/> 的每筆資料都有名稱。</param>
+    /// <param name="operation">實際要執行的操作。</param>
+    [Theory]
+    [MemberData(nameof(UninitializedThrowingOperations))]
+    public void Operation_OnUninitializedResult_ThrowsInvalidOperationException(
+        string operationName, Action<Result<int, string>> operation)
     {
+        Assert.False(string.IsNullOrWhiteSpace(operationName));
+
         var result = default(Result<int, string>);
 
-        Assert.Throws<InvalidOperationException>(
-            () => result.Match(_ => { }, _ => { })
-        );
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 Map 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_Map_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.Map(x => x));
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 MapErr 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_MapErr_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.MapErr(e => e));
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 Bind 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_Bind_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(
-            () => result.Bind(x => Result<int, string>.Ok(x))
-        );
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 Or 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_Or_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(
-            () => result.Or(Result<int, string>.Ok(1))
-        );
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 OrElse 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_OrElse_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(
-            () => result.OrElse(_ => Result<int, string>.Ok(1))
-        );
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 Tap 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_Tap_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.Tap(_ => { }));
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 TapErr 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_TapErr_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.TapErr(_ => { }));
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 Unwrap 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_Unwrap_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.Unwrap());
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 UnwrapOr 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_UnwrapOr_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.UnwrapOr(0));
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 UnwrapOrElse 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_UnwrapOrElse_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.UnwrapOrElse(_ => 0));
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 UnwrapErr 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_UnwrapErr_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.UnwrapErr());
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 Expect 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_Expect_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.Expect("msg"));
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 ExpectErr 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_ExpectErr_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.ExpectErr("msg"));
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 ToOption 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_ToOption_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.ToOption());
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 Err() 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_ErrMethod_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.Err());
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 MapOr 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_MapOr_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(
-            () => result.MapOr("default", v => $"{v}")
-        );
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 MapOrElse 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_MapOrElse_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(
-            () => result.MapOrElse(_ => "fallback", v => $"{v}")
-        );
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 Contains 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_Contains_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.Contains(0));
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 ContainsErr 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_ContainsErr_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.ContainsErr("e"));
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 IsOkAnd 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_IsOkAnd_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.IsOkAnd(_ => true));
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 IsErrAnd 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_IsErrAnd_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.IsErrAnd(_ => true));
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 TryGetOk（單一 out）時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_TryGetOk_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.TryGetOk(out _));
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 TryGetOk（雙 out）時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_TryGetOkDouble_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.TryGetOk(out _, out _));
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 TryGetErr 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_TryGetErr_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.TryGetErr(out _));
-    }
-
-    /// <summary>
-    /// 驗證未初始化的 Result 在呼叫 Select 時拋出 InvalidOperationException。
-    /// </summary>
-    [Fact]
-    public void Uninitialized_Select_ThrowsInvalidOperationException()
-    {
-        var result = default(Result<int, string>);
-
-        Assert.Throws<InvalidOperationException>(() => result.Select(x => x));
+        Assert.Throws<InvalidOperationException>(() => operation(result));
     }
 
     // ================================================================
@@ -2218,6 +1645,31 @@ public class ResultTests
 
         Assert.True(r1 == r2);
         Assert.True(r1.Equals(r2));
+    }
+
+    /// <summary>
+    /// 驗證兩個未初始化的 Result 產生相同的 HashCode，與 Equals/== 的「未初始化視為彼此相等」行為一致。
+    /// 刻意不呼叫 ThrowIfUninitialized：GetHashCode 依 .NET 慣例不應拋出例外（見 <see cref="Result{T,TE}.GetHashCode"/> 的備註）。
+    /// </summary>
+    [Fact]
+    public void EdgeCase_TwoDefaultResults_HaveSameHashCode()
+    {
+        var r1 = default(Result<int, string>);
+        var r2 = default(Result<int, string>);
+
+        Assert.Equal(r1.GetHashCode(), r2.GetHashCode());
+    }
+
+    /// <summary>
+    /// 驗證未初始化的 Result 呼叫 ToString 不會拋出例外，而是回傳 "Err()"。
+    /// 與 GetHashCode 相同，這是刻意不套用「未初始化即中毒」規則的成員。
+    /// </summary>
+    [Fact]
+    public void EdgeCase_DefaultResult_ToStringReturnsErrWithEmptyParens()
+    {
+        var result = default(Result<int, string>);
+
+        Assert.Equal("Err()", result.ToString());
     }
 
     /// <summary>

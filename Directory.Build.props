@@ -9,7 +9,6 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <UseArtifactsOutput>true</UseArtifactsOutput>
     <NuGetAudit>true</NuGetAudit>
-    <NoWarn>$(NoWarn);CA1812;CA1707;CA2000;CA1861</NoWarn>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
 

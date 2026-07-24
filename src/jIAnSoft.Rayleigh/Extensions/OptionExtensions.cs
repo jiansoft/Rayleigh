@@ -8,7 +8,7 @@ namespace jIAnSoft.Rayleigh;
 /// <remarks>
 /// <para>
 /// 這些擴充方法提供額外的功能，特別是那些需要特定泛型約束的操作，
-/// 例如 <see cref="Flatten{T}(Option{Option{T}})"/> 需要巢狀的 <see cref="Option{T}"/>。
+/// 例如 <see cref="Flatten{T}"/> 需要巢狀的 <see cref="Option{T}"/>。
 /// </para>
 /// </remarks>
 public static class OptionExtensions
@@ -55,7 +55,7 @@ public static class OptionExtensions
     /// </code>
     /// </example>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Option<T> Flatten<T>(this Option<Option<T>> nested) where T : notnull => nested.Bind(inner => inner);
+    public static Option<T> Flatten<T>(this in Option<Option<T>> nested) where T : notnull => nested.Bind(inner => inner);
 
     /// <summary>
     /// 將 <see cref="Option{T}"/> 轉換為可空的值類型，若無值則傳回 <c>null</c>。
@@ -73,7 +73,7 @@ public static class OptionExtensions
     /// </code>
     /// </example>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T? OrNull<T>(this Option<T> option) where T : struct =>
+    public static T? OrNull<T>(this in Option<T> option) where T : struct =>
         option.TryGetValue(out var value) ? value : null;
 }
 
@@ -98,6 +98,6 @@ public static class OptionClassExtensions
     /// </code>
     /// </example>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T? OrNull<T>(this Option<T> option) where T : class =>
+    public static T? OrNull<T>(this in Option<T> option) where T : class =>
         option.TryGetValue(out var value) ? value : null;
 }

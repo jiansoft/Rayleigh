@@ -636,4 +636,312 @@ public class ResultAsyncExtensionsTests
         Assert.Equal(42, result.Unwrap());
         Assert.False(actionExecuted);
     }
+
+    // ==========================================
+    // CancellationToken overloads
+    // ==========================================
+
+    /// <summary>
+    /// 驗證 Task 版本的 BindAsync（CancellationToken 多載）會將 token 轉發給 binder。
+    /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
+    [Fact]
+    public async Task BindAsync_Task_WithCancellationToken_PassesTokenToBinder()
+    {
+        using var cts = new CancellationTokenSource();
+        var task = Task.FromResult(Result<int, string>.Ok(5));
+        var receivedToken = CancellationToken.None;
+
+        var result = await task.BindAsync((v, ct) =>
+        {
+            receivedToken = ct;
+            return Task.FromResult(Result<string, string>.Ok($"value:{v}"));
+        }, cts.Token);
+
+        Assert.True(result.IsOk);
+        Assert.Equal("value:5", result.Unwrap());
+        Assert.Equal(cts.Token, receivedToken);
+    }
+
+    /// <summary>
+    /// 驗證 Task 版本的 BindAsync（CancellationToken 多載）在 Err 狀態下即使 token 已取消也不會呼叫 binder 或拋出例外（no-op 短路）。
+    /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
+    [Fact]
+    public async Task BindAsync_Task_WithCancellationToken_Err_DoesNotThrowEvenIfAlreadyCancelled()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var task = Task.FromResult(Result<int, string>.Err("error"));
+        var binderCalled = false;
+
+        var result = await task.BindAsync((v, _) =>
+        {
+            binderCalled = true;
+            return Task.FromResult(Result<string, string>.Ok($"value:{v}"));
+        }, cts.Token);
+
+        Assert.True(result.IsErr);
+        Assert.Equal("error", result.UnwrapErr());
+        Assert.False(binderCalled);
+    }
+
+    /// <summary>
+    /// 驗證 Task 版本的 BindAsync（CancellationToken 多載）在 Ok 狀態下，若 token 已取消則在呼叫 binder 前拋出 OperationCanceledException。
+    /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
+    [Fact]
+    public async Task BindAsync_Task_WithCancellationToken_Ok_AlreadyCancelled_ThrowsBeforeCallingBinder()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var task = Task.FromResult(Result<int, string>.Ok(5));
+        var binderCalled = false;
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => task.BindAsync((v, _) =>
+        {
+            binderCalled = true;
+            return Task.FromResult(Result<string, string>.Ok($"value:{v}"));
+        }, cts.Token));
+
+        Assert.False(binderCalled);
+    }
+
+    /// <summary>
+    /// 驗證 Task 版本的 MapAsync（CancellationToken 多載）會將 token 轉發給 mapper。
+    /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
+    [Fact]
+    public async Task MapAsync_Task_WithCancellationToken_PassesTokenToMapper()
+    {
+        using var cts = new CancellationTokenSource();
+        var task = Task.FromResult(Result<int, string>.Ok(10));
+        var receivedToken = CancellationToken.None;
+
+        var result = await task.MapAsync((v, ct) =>
+        {
+            receivedToken = ct;
+            return Task.FromResult(v * 3);
+        }, cts.Token);
+
+        Assert.True(result.IsOk);
+        Assert.Equal(30, result.Unwrap());
+        Assert.Equal(cts.Token, receivedToken);
+    }
+
+    /// <summary>
+    /// 驗證 Task 版本的 MapErrAsync（CancellationToken 多載）會將 token 轉發給 mapper。
+    /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
+    [Fact]
+    public async Task MapErrAsync_Task_WithCancellationToken_PassesTokenToMapper()
+    {
+        using var cts = new CancellationTokenSource();
+        var task = Task.FromResult(Result<int, string>.Err("boom"));
+        var receivedToken = CancellationToken.None;
+
+        var result = await task.MapErrAsync((e, ct) =>
+        {
+            receivedToken = ct;
+            return Task.FromResult($"[ERROR] {e}");
+        }, cts.Token);
+
+        Assert.True(result.IsErr);
+        Assert.Equal("[ERROR] boom", result.UnwrapErr());
+        Assert.Equal(cts.Token, receivedToken);
+    }
+
+    /// <summary>
+    /// 驗證 Task 版本的 OrElseAsync（CancellationToken 多載）會將 token 轉發給 factory。
+    /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
+    [Fact]
+    public async Task OrElseAsync_Task_WithCancellationToken_PassesTokenToFactory()
+    {
+        using var cts = new CancellationTokenSource();
+        var task = Task.FromResult(Result<int, string>.Err("error"));
+        var receivedToken = CancellationToken.None;
+
+        var result = await task.OrElseAsync((e, ct) =>
+        {
+            receivedToken = ct;
+            return Task.FromResult(Result<int, string>.Ok(99));
+        }, cts.Token);
+
+        Assert.True(result.IsOk);
+        Assert.Equal(99, result.Unwrap());
+        Assert.Equal(cts.Token, receivedToken);
+    }
+
+    /// <summary>
+    /// 驗證 Task 版本的 TapAsync（CancellationToken 多載）會將 token 轉發給 action。
+    /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
+    [Fact]
+    public async Task TapAsync_Task_WithCancellationToken_PassesTokenToAction()
+    {
+        using var cts = new CancellationTokenSource();
+        var task = Task.FromResult(Result<int, string>.Ok(42));
+        var receivedToken = CancellationToken.None;
+
+        var result = await task.TapAsync((_, ct) =>
+        {
+            receivedToken = ct;
+            return Task.CompletedTask;
+        }, cts.Token);
+
+        Assert.True(result.IsOk);
+        Assert.Equal(cts.Token, receivedToken);
+    }
+
+    /// <summary>
+    /// 驗證 Task 版本的 TapErrAsync（CancellationToken 多載）會將 token 轉發給 action。
+    /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
+    [Fact]
+    public async Task TapErrAsync_Task_WithCancellationToken_PassesTokenToAction()
+    {
+        using var cts = new CancellationTokenSource();
+        var task = Task.FromResult(Result<int, string>.Err("error"));
+        var receivedToken = CancellationToken.None;
+
+        var result = await task.TapErrAsync((_, ct) =>
+        {
+            receivedToken = ct;
+            return Task.CompletedTask;
+        }, cts.Token);
+
+        Assert.True(result.IsErr);
+        Assert.Equal(cts.Token, receivedToken);
+    }
+
+    /// <summary>
+    /// 驗證 ValueTask 版本的 BindAsync（CancellationToken 多載）會將 token 轉發給 binder。
+    /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
+    [Fact]
+    public async Task BindAsync_ValueTask_WithCancellationToken_PassesTokenToBinder()
+    {
+        using var cts = new CancellationTokenSource();
+        var task = ValueTask.FromResult(Result<int, string>.Ok(5));
+        var receivedToken = CancellationToken.None;
+
+        var result = await task.BindAsync((v, ct) =>
+        {
+            receivedToken = ct;
+            return ValueTask.FromResult(Result<string, string>.Ok($"value:{v}"));
+        }, cts.Token);
+
+        Assert.True(result.IsOk);
+        Assert.Equal("value:5", result.Unwrap());
+        Assert.Equal(cts.Token, receivedToken);
+    }
+
+    /// <summary>
+    /// 驗證 ValueTask 版本的 MapAsync（CancellationToken 多載）會將 token 轉發給 mapper。
+    /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
+    [Fact]
+    public async Task MapAsync_ValueTask_WithCancellationToken_PassesTokenToMapper()
+    {
+        using var cts = new CancellationTokenSource();
+        var task = ValueTask.FromResult(Result<int, string>.Ok(10));
+        var receivedToken = CancellationToken.None;
+
+        var result = await task.MapAsync((v, ct) =>
+        {
+            receivedToken = ct;
+            return ValueTask.FromResult(v * 3);
+        }, cts.Token);
+
+        Assert.True(result.IsOk);
+        Assert.Equal(30, result.Unwrap());
+        Assert.Equal(cts.Token, receivedToken);
+    }
+
+    /// <summary>
+    /// 驗證 ValueTask 版本的 MapErrAsync（CancellationToken 多載）會將 token 轉發給 mapper。
+    /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
+    [Fact]
+    public async Task MapErrAsync_ValueTask_WithCancellationToken_PassesTokenToMapper()
+    {
+        using var cts = new CancellationTokenSource();
+        var task = ValueTask.FromResult(Result<int, string>.Err("boom"));
+        var receivedToken = CancellationToken.None;
+
+        var result = await task.MapErrAsync((e, ct) =>
+        {
+            receivedToken = ct;
+            return ValueTask.FromResult($"[ERROR] {e}");
+        }, cts.Token);
+
+        Assert.True(result.IsErr);
+        Assert.Equal("[ERROR] boom", result.UnwrapErr());
+        Assert.Equal(cts.Token, receivedToken);
+    }
+
+    /// <summary>
+    /// 驗證 ValueTask 版本的 OrElseAsync（CancellationToken 多載）會將 token 轉發給 factory。
+    /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
+    [Fact]
+    public async Task OrElseAsync_ValueTask_WithCancellationToken_PassesTokenToFactory()
+    {
+        using var cts = new CancellationTokenSource();
+        var task = ValueTask.FromResult(Result<int, string>.Err("error"));
+        var receivedToken = CancellationToken.None;
+
+        var result = await task.OrElseAsync((e, ct) =>
+        {
+            receivedToken = ct;
+            return ValueTask.FromResult(Result<int, string>.Ok(99));
+        }, cts.Token);
+
+        Assert.True(result.IsOk);
+        Assert.Equal(99, result.Unwrap());
+        Assert.Equal(cts.Token, receivedToken);
+    }
+
+    /// <summary>
+    /// 驗證 ValueTask 版本的 TapAsync（CancellationToken 多載）會將 token 轉發給 action。
+    /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
+    [Fact]
+    public async Task TapAsync_ValueTask_WithCancellationToken_PassesTokenToAction()
+    {
+        using var cts = new CancellationTokenSource();
+        var task = ValueTask.FromResult(Result<int, string>.Ok(42));
+        var receivedToken = CancellationToken.None;
+
+        var result = await task.TapAsync((_, ct) =>
+        {
+            receivedToken = ct;
+            return ValueTask.CompletedTask;
+        }, cts.Token);
+
+        Assert.True(result.IsOk);
+        Assert.Equal(cts.Token, receivedToken);
+    }
+
+    /// <summary>
+    /// 驗證 ValueTask 版本的 TapErrAsync（CancellationToken 多載）會將 token 轉發給 action。
+    /// </summary>
+    /// <returns>A task that represents the asynchronous test execution and completes when all awaited assertions and callbacks have finished.</returns>
+    [Fact]
+    public async Task TapErrAsync_ValueTask_WithCancellationToken_PassesTokenToAction()
+    {
+        using var cts = new CancellationTokenSource();
+        var task = ValueTask.FromResult(Result<int, string>.Err("error"));
+        var receivedToken = CancellationToken.None;
+
+        var result = await task.TapErrAsync((_, ct) =>
+        {
+            receivedToken = ct;
+            return ValueTask.CompletedTask;
+        }, cts.Token);
+
+        Assert.True(result.IsErr);
+        Assert.Equal(cts.Token, receivedToken);
+    }
 }

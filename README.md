@@ -268,6 +268,15 @@ Each step only runs if the previous one succeeded. Errors propagate automaticall
 > **`Task` vs `ValueTask`**: Every method above has a `ValueTask` overload as well.
 > Use `ValueTask` in hot paths to avoid heap allocation when the result is often available synchronously.
 
+> **`CancellationToken`**: Every async combinator also has an overload whose delegate accepts a
+> `CancellationToken` as its last parameter, plus a trailing `CancellationToken` argument on the combinator itself:
+> ```csharp
+> var result = await GetUserAsync(userId)
+>     .BindAsync((user, ct) => GetOrdersAsync(user.Id, ct), cancellationToken);
+> ```
+> The token is only checked (and forwarded) when the delegate is actually about to run — a short-circuited
+> `Err`/`None` branch never observes cancellation, matching the no-op semantics of the rest of the library.
+
 ### Unit Type
 
 Use `Unit` as a success type in `Result` when there is no meaningful return value:
@@ -377,6 +386,29 @@ var maybeError = result.Err();
 | `OptionAsyncExtensions` | `BindAsync` / `MapAsync` / `OrElseAsync` | Async Option chaining (`Task` & `ValueTask`) |
 | `ResultAsyncExtensions` | `BindAsync` / `MapAsync` / `MapErrAsync` / `OrElseAsync` / `TapAsync` / `TapErrAsync` | Async Result chaining (`Task` & `ValueTask`) |
 
+## Security Considerations
+
+`Unwrap()` and `UnwrapErr()` throw an `InvalidOperationException` whose default message embeds the
+`ToString()` output of the value you didn't ask for (`Unwrap()` on `Err` includes the error; `UnwrapErr()`
+on `Ok` includes the value):
+
+```csharp
+var result = Result<int, string>.Err(secretValidationDetails);
+result.Unwrap(); // message: "Result is Err: {secretValidationDetails}"
+```
+
+If `T` or `E` may carry sensitive data (raw user input, tokens, connection strings, PII), that content can
+flow into logs, telemetry, or error responses through an uncaught exception. The same applies to `ToString()`,
+which always renders `Ok(value)` / `Err(error)` for debugging purposes.
+
+**Guidance:**
+- Prefer `Expect(message)` / `ExpectErr(message)` with a static, non-sensitive message when the value/error
+  might be sensitive — the message is entirely caller-controlled.
+- Prefer `Match` / `TryGetOk` / `TryGetErr` when you need to branch on success/failure without ever risking
+  the default exception path.
+- Avoid putting secrets directly in `E` (or `T`); wrap them in an error/DTO type whose `ToString()` you control,
+  or scrub sensitive fields before they reach a `Result`/`Option`.
+
 ## Project Structure
 
 ```
@@ -387,6 +419,8 @@ Rayleigh/
 │   └── jIAnSoft.Rayleigh.Tests/ # Unit tests (xUnit)
 ├── examples/
 │   └── jIAnSoft.Rayleigh.Examples/ # Runnable examples
+├── benchmarks/
+│   └── jIAnSoft.Rayleigh.Benchmarks/ # BenchmarkDotNet allocation/throughput benchmarks
 ├── LICENSE
 └── README.md
 ```
@@ -401,6 +435,16 @@ dotnet build
 
 ```bash
 dotnet test
+```
+
+## Benchmarks
+
+The `benchmarks/` project uses [BenchmarkDotNet](https://benchmarkdotnet.org/) to measure allocation and
+throughput for `Option<T>` and `Result<T, E>`, substantiating the "zero-allocation" claim above and guarding
+against regressions. Run it in Release mode (BenchmarkDotNet refuses to run under a Debug build):
+
+```bash
+dotnet run -c Release --project benchmarks/jIAnSoft.Rayleigh.Benchmarks
 ```
 
 ## License

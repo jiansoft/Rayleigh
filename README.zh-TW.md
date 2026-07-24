@@ -268,6 +268,15 @@ Result<OrderConfirmation, AppError> confirmation = await ValidateOrderAsync(requ
 > **`Task` vs `ValueTask`**：上述每個方法都有對應的 `ValueTask` 多載。
 > 在高頻路徑中使用 `ValueTask`，可在結果經常同步可用時避免堆積分配。
 
+> **`CancellationToken`**：每個非同步組合子也都提供一個多載，其委派的最後一個參數接受 `CancellationToken`，
+> 組合子本身也多一個尾端的 `CancellationToken` 參數：
+> ```csharp
+> var result = await GetUserAsync(userId)
+>     .BindAsync((user, ct) => GetOrdersAsync(user.Id, ct), cancellationToken);
+> ```
+> 只有在真的要執行委派時才會檢查（並轉發）取消狀態——短路的 `Err`/`None` 分支不會觀察到取消，
+> 與函式庫其他部分的 no-op 語意一致。
+
 ### Unit 型別
 
 當沒有有意義的回傳值時，使用 `Unit` 作為 `Result` 的成功型別：
@@ -377,6 +386,26 @@ var maybeError = result.Err();
 | `OptionAsyncExtensions` | `BindAsync` / `MapAsync` / `OrElseAsync` | 非同步 Option 串接（`Task` 與 `ValueTask`） |
 | `ResultAsyncExtensions` | `BindAsync` / `MapAsync` / `MapErrAsync` / `OrElseAsync` / `TapAsync` / `TapErrAsync` | 非同步 Result 串接（`Task` 與 `ValueTask`） |
 
+## 安全性注意事項
+
+`Unwrap()` 與 `UnwrapErr()` 在失敗時擲出的 `InvalidOperationException`，其預設訊息會內嵌「你沒有要求的那一側」的
+`ToString()` 結果（`Unwrap()` 在 `Err` 時會包含錯誤內容；`UnwrapErr()` 在 `Ok` 時會包含成功值）：
+
+```csharp
+var result = Result<int, string>.Err(secretValidationDetails);
+result.Unwrap(); // 訊息內容："Result is Err: {secretValidationDetails}"
+```
+
+若 `T` 或 `E` 可能承載敏感資訊（原始使用者輸入、Token、連線字串、個資等），這些內容可能經由未攔截的例外
+流入記錄檔、遙測系統或錯誤回應。`ToString()` 也有同樣的行為——它一律會輸出 `Ok(value)` / `Err(error)` 以利除錯。
+
+**建議做法：**
+- 當值／錯誤可能含敏感資訊時，優先使用 `Expect(message)` / `ExpectErr(message)`，並提供固定、不含敏感內容的訊息——
+  訊息內容完全由呼叫端掌控。
+- 若只是要依成功/失敗分流處理，優先使用 `Match` / `TryGetOk` / `TryGetErr`，完全避開預設例外路徑。
+- 避免將機密資料直接放進 `E`（或 `T`）；改用你能掌控其 `ToString()` 的錯誤/DTO 型別包裝，
+  或在資料進入 `Result`/`Option` 之前先做遮罩處理。
+
 ## 專案結構
 
 ```
@@ -387,6 +416,8 @@ Rayleigh/
 │   └── jIAnSoft.Rayleigh.Tests/ # 單元測試（xUnit）
 ├── examples/
 │   └── jIAnSoft.Rayleigh.Examples/ # 可執行範例
+├── benchmarks/
+│   └── jIAnSoft.Rayleigh.Benchmarks/ # BenchmarkDotNet 記憶體配置／效能基準測試
 ├── LICENSE
 └── README.md
 ```
@@ -401,6 +432,16 @@ dotnet build
 
 ```bash
 dotnet test
+```
+
+## 效能基準測試
+
+`benchmarks/` 專案使用 [BenchmarkDotNet](https://benchmarkdotnet.org/) 量測 `Option<T>` 與 `Result<T, E>` 的
+記憶體配置與效能，用以佐證上方「zero-allocation」的宣稱，並防止未來重構造成效能迴歸。
+請以 Release 模式執行（BenchmarkDotNet 不允許在 Debug 組態下執行）：
+
+```bash
+dotnet run -c Release --project benchmarks/jIAnSoft.Rayleigh.Benchmarks
 ```
 
 ## 授權條款

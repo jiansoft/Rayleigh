@@ -8,4 +8,7 @@
   <Folder Name="/examples/">
     <Project Path="examples/jIAnSoft.Rayleigh.Examples/jIAnSoft.Rayleigh.Examples.csproj" />
   </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/jIAnSoft.Rayleigh.Benchmarks/jIAnSoft.Rayleigh.Benchmarks.csproj" />
+  </Folder>
 </Solution>

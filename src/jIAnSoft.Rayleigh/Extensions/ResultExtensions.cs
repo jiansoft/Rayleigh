@@ -8,7 +8,7 @@ namespace jIAnSoft.Rayleigh;
 /// <remarks>
 /// <para>
 /// 這些擴充方法提供額外的功能，特別是那些需要特定泛型約束的操作，
-/// 例如 <see cref="Flatten{T, TE}(Result{Result{T, TE}, TE})"/> 需要巢狀的 <see cref="Result{T,E}"/>。
+/// 例如 <see cref="Flatten{T, TE}"/> 需要巢狀的 <see cref="Result{T,E}"/>。
 /// </para>
 /// </remarks>
 public static class ResultExtensions
@@ -64,7 +64,7 @@ public static class ResultExtensions
     /// </code>
     /// </example>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Result<T, TE> Flatten<T, TE>(this Result<Result<T, TE>, TE> nested)
+    public static Result<T, TE> Flatten<T, TE>(this in Result<Result<T, TE>, TE> nested)
         where T : notnull
         where TE : notnull
         => nested.Bind(inner => inner);

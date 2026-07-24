@@ -118,6 +118,20 @@ public static class Option
 /// </example>
 public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>, IComparable where T : notnull
 {
+    /// <summary>
+    /// 內部儲存的值。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 型別為 <c>T?</c> 而非 <c>T</c>，是為了讓編譯器的 Nullable 流程分析能配合 <see cref="IsSome"/>
+    /// 上的 <see cref="MemberNotNullWhenAttribute"/> 運作：當 <see cref="IsSome"/> 為 <c>true</c> 時，
+    /// 編譯器會將 <c>_value</c> 視為已確定非 null，讀取端因此不需要使用 <c>!</c> null-forgiving operator。
+    /// </para>
+    /// <para>
+    /// 當 <see cref="IsSome"/> 為 <c>false</c>（即 <see cref="None"/>）時，本欄位一律為其型別的 <c>default</c> 值
+    /// （參考型別為 <c>null</c>，值型別為零值），此為 struct 的預設初始化語意，不代表發生任何錯誤。
+    /// </para>
+    /// </remarks>
     private readonly T? _value;
 
     /// <summary>
@@ -205,10 +219,17 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
     #endregion
 
     /// <summary>
-    /// 建立一個包含指定值的 <see cref="Option{T}"/>。
+    /// 建立一個包含指定值的 <see cref="Option{T}"/>（Some 狀態）。這是 <see cref="Some(T)"/> 靜態工廠方法背後實際呼叫的私有建構子。
     /// </summary>
     /// <param name="value">要包含的值，不可為 <c>null</c>。</param>
     /// <exception cref="ArgumentNullException">當 <paramref name="value"/> 為 <c>null</c> 時擲出。</exception>
+    /// <remarks>
+    /// <para>
+    /// 刻意設計為 <c>private</c>，強迫呼叫端一律透過 <see cref="Some(T)"/> 或隱式轉換建立「有值」的 Option，
+    /// 而不能繞過此處的 null 檢查直接建構——即使 <typeparamref name="T"/> 在編譯時期已受 <c>notnull</c> 條件約束，
+    /// 執行期仍可能因呼叫端停用 Nullable 檢查、或透過反射等方式傳入 <c>null</c>，因此此處的執行期防護是必要的最後防線。
+    /// </para>
+    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Option(T value)
     {
@@ -453,7 +474,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
     /// </code>
     /// </example>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Option<(T, TU)> Zip<TU>(Option<TU> other) where TU : notnull
+    public Option<(T, TU)> Zip<TU>(in Option<TU> other) where TU : notnull
         => IsSome && other.IsSome ? Option<(T, TU)>.Some((_value, other.Unwrap())) : Option<(T, TU)>.None;
 
     /// <summary>
@@ -480,7 +501,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
     /// </code>
     /// </example>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Option<TResult> ZipWith<TU, TResult>(Option<TU> other, Func<T, TU, TResult> zipper)
+    public Option<TResult> ZipWith<TU, TResult>(in Option<TU> other, Func<T, TU, TResult> zipper)
         where TU : notnull
         where TResult : notnull
         => IsSome && other.IsSome ? Option<TResult>.Some(zipper(_value, other.Unwrap())) : Option<TResult>.None;
@@ -504,7 +525,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
     /// </code>
     /// </example>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Option<T> Or(Option<T> other) => IsSome ? this : other;
+    public Option<T> Or(in Option<T> other) => IsSome ? this : other;
 
     /// <summary>
     /// 如果無值，則執行工廠函數取得替代的 Option（惰性求值）。
@@ -636,6 +657,15 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public T Expect(string message) => IsSome ? _value : ThrowNoneException(message);
 
+    /// <summary>
+    /// 擲出代表「Option 為 None」的 <see cref="InvalidOperationException"/>，供 <see cref="Unwrap"/> 與 <see cref="Expect(string)"/> 共用。
+    /// </summary>
+    /// <param name="message">
+    /// 自訂錯誤訊息；若為 <c>null</c>（即 <see cref="Unwrap"/> 呼叫此方法時的情況），則使用固定文字 <c>"Option is None"</c>。
+    /// 由於 None 狀態沒有內部值可供內嵌，此處與 <see cref="Result{T,TE}"/> 的對應方法不同，不會有洩漏敏感資料的疑慮。
+    /// </param>
+    /// <returns>本方法一律拋出例外，不會實際回傳；回傳型別 <typeparamref name="T"/> 僅用於讓呼叫端能以運算式形式使用（<c>IsSome ? _value : ThrowNoneException()</c>）。</returns>
+    /// <exception cref="InvalidOperationException">一律擲出。</exception>
     [DoesNotReturn]
     private static T ThrowNoneException(string? message = null)
         => throw new InvalidOperationException(message ?? "Option is None");

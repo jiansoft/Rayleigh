@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <!-- BenchmarkDotNet 需要在 Release 組態下才有意義的結果，且不應套用 TreatWarningsAsErrors
+         以外的核心函式庫限制；這裡沿用根目錄的 TargetFrameworks/Nullable 等設定即可。 -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\jIAnSoft.Rayleigh\jIAnSoft.Rayleigh.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,24 @@
+<Project>
+
+  <!-- 先套用根目錄的 Directory.Build.props（TargetFrameworks、Nullable、AnalysisLevel 等共用設定） -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- SDK 的 UseArtifactsOutput 會以「最近的 Directory.Build.props」所在目錄為基準計算 ArtifactsPath，
+         此檔案存在會導致 tests/ 底下的專案輸出跑到 tests/artifacts，而非與 src/examples 共用的根目錄 artifacts。
+         明確指回根目錄，維持單一 artifacts 輸出位置。 -->
+    <ArtifactsPath>$(MSBuildThisFileDirectory)../artifacts</ArtifactsPath>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      以下分析器抑制僅測試專案需要，核心函式庫（src）不套用，維持最嚴格的分析等級：
+      CA1812: 測試/Fixture 用的內部類別可能被判定為「未實例化」。
+      CA1707: xUnit 慣例的測試方法命名（Method_Scenario_Expected）需要底線。
+      CA2000: 測試中建立的一次性物件（例如短生命週期的 stub）不一定需要顯式 Dispose。
+      CA1861: 測試斷言常以常數陣列字面值作為引數（Assert.Equal(new[] {...}, ...)）。
+    -->
+    <NoWarn>$(NoWarn);CA1812;CA1707;CA2000;CA1861</NoWarn>
+  </PropertyGroup>
+
+</Project>
