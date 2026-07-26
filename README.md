@@ -2,6 +2,8 @@
 
 # Rayleigh
 
+[![NuGet version](https://img.shields.io/nuget/v/jIAnSoft.Rayleigh.svg?logo=nuget)](https://www.nuget.org/packages/jIAnSoft.Rayleigh/)
+
 Option and Result types for C#, inspired by Rust.
 
 A zero-allocation, high-performance functional primitives library for .NET 8 and .NET 10.

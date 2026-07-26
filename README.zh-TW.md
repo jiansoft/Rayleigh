@@ -2,6 +2,8 @@
 
 # Rayleigh
 
+[![NuGet version](https://img.shields.io/nuget/v/jIAnSoft.Rayleigh.svg?logo=nuget)](https://www.nuget.org/packages/jIAnSoft.Rayleigh/)
+
 受 Rust 啟發的 C# Option 與 Result 型別。
 
 專為 .NET 8 與 .NET 10 打造的零分配、高效能函數式基礎型別庫。
