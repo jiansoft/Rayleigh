@@ -1,0 +1,101 @@
+##
+## 由 version tag 觸發的 NuGet 發佈流程。
+##
+## 前置需求（缺任一項，發佈步驟會失敗）：
+##   1. 在 nuget.org → 帳號名稱 → Trusted Publishing 建立規則：
+##      Repository Owner: jiansoft
+##      Repository: Rayleigh
+##      Workflow File: release.yml
+##      Environment: 留空（此 workflow 未使用 GitHub Actions environment）
+##   2. Repository secret `NUGET_USER` — nuget.org 的使用者名稱（profile name，非 email）。
+##      設定位置：Settings → Secrets and variables → Actions → New repository secret
+##   3. 推送一個 `v` 開頭的 tag，例如：
+##        git tag v26.7.26
+##        git push origin v26.7.26
+##
+## 本工作流程「不會」自行決定版本號：套件版本一律取自
+## src/jIAnSoft.Rayleigh/jIAnSoft.Rayleigh.csproj 的 <Version>。
+## 下方的 verify-version 步驟會檢查 tag 與該值是否一致，不一致就中止，
+## 避免發佈出「tag 寫 v1.2.3、套件內容卻是 1.2.2」這種難以追查的狀況。
+##
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # 建立 GitHub Release 需要
+  id-token: write   # NuGet Trusted Publishing：讓 GitHub Actions 簽發 OIDC token
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Verify tag matches csproj version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          CSPROJ_VERSION=$(grep -oPm1 '(?<=<Version>)[^<]+' src/jIAnSoft.Rayleigh/jIAnSoft.Rayleigh.csproj)
+          echo "Tag version   : $TAG_VERSION"
+          echo "csproj version: $CSPROJ_VERSION"
+          if [ "$TAG_VERSION" != "$CSPROJ_VERSION" ]; then
+            echo "::error::Tag '$GITHUB_REF_NAME' does not match <Version>$CSPROJ_VERSION</Version> in the csproj."
+            exit 1
+          fi
+
+      - name: Restore
+        run: dotnet restore jIAnSoft.Rayleigh.slnx
+
+      - name: Build (Release)
+        run: dotnet build jIAnSoft.Rayleigh.slnx -c Release --no-restore
+
+      # 發佈前必須通過完整測試，包含 net8.0 與 net10.0 兩個目標框架。
+      - name: Test
+        run: dotnet test jIAnSoft.Rayleigh.slnx -c Release --no-build
+
+      # GeneratePackageOnBuild 已在建置時產生 .nupkg 與 .snupkg，
+      # 此處只需從 artifacts 目錄取出。
+      - name: Collect packages
+        run: |
+          mkdir -p ./nupkgs
+          find ./artifacts/package/release -name '*.nupkg' -o -name '*.snupkg' | xargs -I {} cp {} ./nupkgs/
+          ls -la ./nupkgs
+
+      - name: Upload packages as build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: ./nupkgs/*
+
+      # 利用 GitHub OIDC token 向 nuget.org 換取一小時有效的 API key；不使用長期 API key secret。
+      # `user` 必須是 nuget.org profile name，而非 email。
+      - name: NuGet login (OIDC → temporary API key)
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      # --skip-duplicate：重跑同一個 tag 時不會因為版本已存在而失敗。
+      - name: Push to NuGet
+        run: |
+          dotnet nuget push './nupkgs/*.nupkg' \
+            --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: ./nupkgs/*
