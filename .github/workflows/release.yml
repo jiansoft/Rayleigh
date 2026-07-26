@@ -13,6 +13,10 @@
 ##        git tag v26.7.26
 ##        git push origin v26.7.26
 ##
+## 手動驗證（dry run）：GitHub → Actions → Release → Run workflow。
+## 此方式會執行建置、測試與 NuGet Trusted Publishing 的 OIDC 登入，
+## 但不會發佈套件或建立 GitHub Release。
+##
 ## 本工作流程「不會」自行決定版本號：套件版本一律取自
 ## src/jIAnSoft.Rayleigh/jIAnSoft.Rayleigh.csproj 的 <Version>。
 ## 下方的 verify-version 步驟會檢查 tag 與該值是否一致，不一致就中止，
@@ -24,6 +28,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write   # 建立 GitHub Release 需要
@@ -44,6 +49,7 @@ jobs:
             10.0.x
 
       - name: Verify tag matches csproj version
+        if: github.event_name == 'push'
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           CSPROJ_VERSION=$(grep -oPm1 '(?<=<Version>)[^<]+' src/jIAnSoft.Rayleigh/jIAnSoft.Rayleigh.csproj)
@@ -86,8 +92,10 @@ jobs:
         with:
           user: ${{ secrets.NUGET_USER }}
 
+      # 手動 workflow_dispatch 是安全 dry run：驗證 OIDC 登入但不會推送任何套件。
       # --skip-duplicate：重跑同一個 tag 時不會因為版本已存在而失敗。
       - name: Push to NuGet
+        if: github.event_name == 'push'
         run: |
           dotnet nuget push './nupkgs/*.nupkg' \
             --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
@@ -95,6 +103,7 @@ jobs:
             --skip-duplicate
 
       - name: Create GitHub Release
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
