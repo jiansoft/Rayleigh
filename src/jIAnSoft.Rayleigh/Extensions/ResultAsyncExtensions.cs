@@ -76,9 +76,9 @@ public static class ResultAsyncExtensions
         Func<T, Task<Result<TU, TE>>> binder) where TE : notnull where T : notnull where TU : notnull
     {
         var result = await task.ConfigureAwait(false);
-        return result.IsOk
-            ? await binder(result.Unwrap()).ConfigureAwait(false)
-            : Result<TU, TE>.Err(result.UnwrapErr());
+        return result.TryGetOk(out var value, out var error)
+            ? await binder(value).ConfigureAwait(false)
+            : Result<TU, TE>.Err(error);
     }
 
     /// <summary>
@@ -91,13 +91,13 @@ public static class ResultAsyncExtensions
         CancellationToken cancellationToken = default) where TE : notnull where T : notnull where TU : notnull
     {
         var result = await task.ConfigureAwait(false);
-        if (!result.IsOk)
+        if (!result.TryGetOk(out var value, out var error))
         {
-            return Result<TU, TE>.Err(result.UnwrapErr());
+            return Result<TU, TE>.Err(error);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        return await binder(result.Unwrap(), cancellationToken).ConfigureAwait(false);
+        return await binder(value, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -146,9 +146,9 @@ public static class ResultAsyncExtensions
         Func<T, Task<TU>> mapper) where TE : notnull where T : notnull where TU : notnull
     {
         var result = await task.ConfigureAwait(false);
-        return result.IsOk
-            ? Result<TU, TE>.Ok(await mapper(result.Unwrap()).ConfigureAwait(false))
-            : Result<TU, TE>.Err(result.UnwrapErr());
+        return result.TryGetOk(out var value, out var error)
+            ? Result<TU, TE>.Ok(await mapper(value).ConfigureAwait(false))
+            : Result<TU, TE>.Err(error);
     }
 
     /// <summary>
@@ -161,13 +161,13 @@ public static class ResultAsyncExtensions
         CancellationToken cancellationToken = default) where TE : notnull where T : notnull where TU : notnull
     {
         var result = await task.ConfigureAwait(false);
-        if (!result.IsOk)
+        if (!result.TryGetOk(out var value, out var error))
         {
-            return Result<TU, TE>.Err(result.UnwrapErr());
+            return Result<TU, TE>.Err(error);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        return Result<TU, TE>.Ok(await mapper(result.Unwrap(), cancellationToken).ConfigureAwait(false));
+        return Result<TU, TE>.Ok(await mapper(value, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>
@@ -193,9 +193,9 @@ public static class ResultAsyncExtensions
         where TF : notnull
     {
         var result = await task.ConfigureAwait(false);
-        return result.IsOk
-            ? Result<T, TF>.Ok(result.Unwrap())
-            : Result<T, TF>.Err(await mapper(result.UnwrapErr()).ConfigureAwait(false));
+        return result.TryGetOk(out var value, out var error)
+            ? Result<T, TF>.Ok(value)
+            : Result<T, TF>.Err(await mapper(error).ConfigureAwait(false));
     }
 
     /// <summary>
@@ -211,13 +211,13 @@ public static class ResultAsyncExtensions
         where TF : notnull
     {
         var result = await task.ConfigureAwait(false);
-        if (result.IsOk)
+        if (result.TryGetOk(out var value, out var error))
         {
-            return Result<T, TF>.Ok(result.Unwrap());
+            return Result<T, TF>.Ok(value);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        return Result<T, TF>.Err(await mapper(result.UnwrapErr(), cancellationToken).ConfigureAwait(false));
+        return Result<T, TF>.Err(await mapper(error, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>
@@ -241,9 +241,9 @@ public static class ResultAsyncExtensions
         where TE : notnull
     {
         var result = await task.ConfigureAwait(false);
-        return result.IsOk
-            ? result
-            : await factory(result.UnwrapErr()).ConfigureAwait(false);
+        return result.TryGetErr(out var error)
+            ? await factory(error).ConfigureAwait(false)
+            : result;
     }
 
     /// <summary>
@@ -258,13 +258,13 @@ public static class ResultAsyncExtensions
         where TE : notnull
     {
         var result = await task.ConfigureAwait(false);
-        if (result.IsOk)
+        if (!result.TryGetErr(out var error))
         {
             return result;
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        return await factory(result.UnwrapErr(), cancellationToken).ConfigureAwait(false);
+        return await factory(error, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -288,9 +288,9 @@ public static class ResultAsyncExtensions
         where TE : notnull
     {
         var result = await task.ConfigureAwait(false);
-        if (result.IsOk)
+        if (result.TryGetOk(out var value))
         {
-            await action(result.Unwrap()).ConfigureAwait(false);
+            await action(value).ConfigureAwait(false);
         }
 
         return result;
@@ -308,10 +308,10 @@ public static class ResultAsyncExtensions
         where TE : notnull
     {
         var result = await task.ConfigureAwait(false);
-        if (result.IsOk)
+        if (result.TryGetOk(out var value))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await action(result.Unwrap(), cancellationToken).ConfigureAwait(false);
+            await action(value, cancellationToken).ConfigureAwait(false);
         }
 
         return result;
@@ -338,9 +338,9 @@ public static class ResultAsyncExtensions
         where TE : notnull
     {
         var result = await task.ConfigureAwait(false);
-        if (result.IsErr)
+        if (result.TryGetErr(out var error))
         {
-            await action(result.UnwrapErr()).ConfigureAwait(false);
+            await action(error).ConfigureAwait(false);
         }
 
         return result;
@@ -358,10 +358,10 @@ public static class ResultAsyncExtensions
         where TE : notnull
     {
         var result = await task.ConfigureAwait(false);
-        if (result.IsErr)
+        if (result.TryGetErr(out var error))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await action(result.UnwrapErr(), cancellationToken).ConfigureAwait(false);
+            await action(error, cancellationToken).ConfigureAwait(false);
         }
 
         return result;
@@ -382,9 +382,9 @@ public static class ResultAsyncExtensions
         where TU : notnull
     {
         var result = await task.ConfigureAwait(false);
-        return result.IsOk
-            ? await binder(result.Unwrap()).ConfigureAwait(false)
-            : Result<TU, TE>.Err(result.UnwrapErr());
+        return result.TryGetOk(out var value, out var error)
+            ? await binder(value).ConfigureAwait(false)
+            : Result<TU, TE>.Err(error);
     }
 
     /// <summary>
@@ -400,13 +400,13 @@ public static class ResultAsyncExtensions
         where TU : notnull
     {
         var result = await task.ConfigureAwait(false);
-        if (!result.IsOk)
+        if (!result.TryGetOk(out var value, out var error))
         {
-            return Result<TU, TE>.Err(result.UnwrapErr());
+            return Result<TU, TE>.Err(error);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        return await binder(result.Unwrap(), cancellationToken).ConfigureAwait(false);
+        return await binder(value, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -420,9 +420,9 @@ public static class ResultAsyncExtensions
         where TU : notnull
     {
         var result = await task.ConfigureAwait(false);
-        return result.IsOk
-            ? Result<TU, TE>.Ok(await mapper(result.Unwrap()).ConfigureAwait(false))
-            : Result<TU, TE>.Err(result.UnwrapErr());
+        return result.TryGetOk(out var value, out var error)
+            ? Result<TU, TE>.Ok(await mapper(value).ConfigureAwait(false))
+            : Result<TU, TE>.Err(error);
     }
 
     /// <summary>
@@ -438,13 +438,13 @@ public static class ResultAsyncExtensions
         where TU : notnull
     {
         var result = await task.ConfigureAwait(false);
-        if (!result.IsOk)
+        if (!result.TryGetOk(out var value, out var error))
         {
-            return Result<TU, TE>.Err(result.UnwrapErr());
+            return Result<TU, TE>.Err(error);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        return Result<TU, TE>.Ok(await mapper(result.Unwrap(), cancellationToken).ConfigureAwait(false));
+        return Result<TU, TE>.Ok(await mapper(value, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>
@@ -458,9 +458,9 @@ public static class ResultAsyncExtensions
         where T : notnull
     {
         var result = await task.ConfigureAwait(false);
-        return result.IsOk
-            ? Result<T, TF>.Ok(result.Unwrap())
-            : Result<T, TF>.Err(await mapper(result.UnwrapErr()).ConfigureAwait(false));
+        return result.TryGetOk(out var value, out var error)
+            ? Result<T, TF>.Ok(value)
+            : Result<T, TF>.Err(await mapper(error).ConfigureAwait(false));
     }
 
     /// <summary>
@@ -476,13 +476,13 @@ public static class ResultAsyncExtensions
         where T : notnull
     {
         var result = await task.ConfigureAwait(false);
-        if (result.IsOk)
+        if (result.TryGetOk(out var value, out var error))
         {
-            return Result<T, TF>.Ok(result.Unwrap());
+            return Result<T, TF>.Ok(value);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        return Result<T, TF>.Err(await mapper(result.UnwrapErr(), cancellationToken).ConfigureAwait(false));
+        return Result<T, TF>.Err(await mapper(error, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>
@@ -495,9 +495,9 @@ public static class ResultAsyncExtensions
         where T : notnull
     {
         var result = await task.ConfigureAwait(false);
-        return result.IsOk
-            ? result
-            : await factory(result.UnwrapErr()).ConfigureAwait(false);
+        return result.TryGetErr(out var error)
+            ? await factory(error).ConfigureAwait(false)
+            : result;
     }
 
     /// <summary>
@@ -512,13 +512,13 @@ public static class ResultAsyncExtensions
         where T : notnull
     {
         var result = await task.ConfigureAwait(false);
-        if (result.IsOk)
+        if (!result.TryGetErr(out var error))
         {
             return result;
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        return await factory(result.UnwrapErr(), cancellationToken).ConfigureAwait(false);
+        return await factory(error, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -531,9 +531,9 @@ public static class ResultAsyncExtensions
         where T : notnull
     {
         var result = await task.ConfigureAwait(false);
-        if (result.IsOk)
+        if (result.TryGetOk(out var value))
         {
-            await action(result.Unwrap()).ConfigureAwait(false);
+            await action(value).ConfigureAwait(false);
         }
 
         return result;
@@ -551,10 +551,10 @@ public static class ResultAsyncExtensions
         where T : notnull
     {
         var result = await task.ConfigureAwait(false);
-        if (result.IsOk)
+        if (result.TryGetOk(out var value))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await action(result.Unwrap(), cancellationToken).ConfigureAwait(false);
+            await action(value, cancellationToken).ConfigureAwait(false);
         }
 
         return result;
@@ -570,9 +570,9 @@ public static class ResultAsyncExtensions
         where T : notnull
     {
         var result = await task.ConfigureAwait(false);
-        if (result.IsErr)
+        if (result.TryGetErr(out var error))
         {
-            await action(result.UnwrapErr()).ConfigureAwait(false);
+            await action(error).ConfigureAwait(false);
         }
 
         return result;
@@ -590,12 +590,322 @@ public static class ResultAsyncExtensions
         where T : notnull
     {
         var result = await task.ConfigureAwait(false);
-        if (result.IsErr)
+        if (result.TryGetErr(out var error))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await action(result.UnwrapErr(), cancellationToken).ConfigureAwait(false);
+            await action(error, cancellationToken).ConfigureAwait(false);
         }
 
+        return result;
+    }
+
+    // ==========================================
+    // Sync Source（以同步的 Result<T, TE> 為起點）
+    // ==========================================
+
+    /// <summary>
+    /// 以同步的 <see cref="Result{T,TE}"/> 為起點，串接一個非同步的 binder。
+    /// </summary>
+    /// <typeparam name="T">原始成功值的類型。</typeparam>
+    /// <typeparam name="TU">轉換後成功值的類型。</typeparam>
+    /// <typeparam name="TE">錯誤的類型。</typeparam>
+    /// <param name="result">來源結果。</param>
+    /// <param name="binder">非同步映射函數。</param>
+    /// <returns>若成功則為 <paramref name="binder"/> 的結果；若失敗則為帶有相同錯誤的 <see cref="Result{TU,TE}"/>。</returns>
+    /// <remarks>
+    /// <para><b>為什麼需要這個多載</b></para>
+    /// <para>
+    /// 其餘的 <c>BindAsync</c> 多載都以 <see cref="Task{TResult}"/>／<see cref="ValueTask{TResult}"/> 為 <c>this</c>，
+    /// 因此當管線的<b>起點</b>是一個同步取得的 <see cref="Result{T,TE}"/> 時，呼叫端過去只能寫成
+    /// <c>Task.FromResult(result).BindAsync(...)</c>——這會為了接上型別而多配置一個 <see cref="Task{TResult}"/>。
+    /// </para>
+    /// <para><b>零配置的短路路徑</b></para>
+    /// <para>
+    /// 本方法刻意<b>不</b>宣告為 <c>async</c>：失敗時直接以同步完成的 <see cref="ValueTask{TResult}"/> 回傳，
+    /// 完全不會建立 async 狀態機，也不會有任何 heap 配置；成功時則直接回傳 <paramref name="binder"/> 的
+    /// <see cref="ValueTask{TResult}"/>，不額外包裝一層。
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// // Before：為了型別相容而多配置一個 Task
+    /// var r1 = await Task.FromResult(Validate(input)).BindAsync(v => SaveAsync(v));
+    ///
+    /// // After：直接串接，Err 短路時零配置
+    /// var r2 = await Validate(input).BindAsync(v => SaveAsync(v));
+    /// </code>
+    /// </example>
+    public static ValueTask<Result<TU, TE>> BindAsync<T, TU, TE>(
+        this Result<T, TE> result,
+        Func<T, ValueTask<Result<TU, TE>>> binder)
+        where T : notnull
+        where TU : notnull
+        where TE : notnull
+        => result.TryGetOk(out var value, out var error)
+            ? binder(value)
+            : new ValueTask<Result<TU, TE>>(Result<TU, TE>.Err(error));
+
+    /// <summary>
+    /// 以同步的 <see cref="Result{T,TE}"/> 為起點，串接一個非同步的 binder，並傳入 <see cref="CancellationToken"/>。
+    /// </summary>
+    /// <remarks>僅在需要執行 <paramref name="binder"/> 時才檢查取消狀態；若來源為 Err，本方法為 no-op，不會拋出。</remarks>
+    public static ValueTask<Result<TU, TE>> BindAsync<T, TU, TE>(
+        this Result<T, TE> result,
+        Func<T, CancellationToken, ValueTask<Result<TU, TE>>> binder,
+        CancellationToken cancellationToken = default)
+        where T : notnull
+        where TU : notnull
+        where TE : notnull
+    {
+        if (!result.TryGetOk(out var value, out var error))
+        {
+            return new ValueTask<Result<TU, TE>>(Result<TU, TE>.Err(error));
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return binder(value, cancellationToken);
+    }
+
+    /// <summary>
+    /// 以同步的 <see cref="Result{T,TE}"/> 為起點，對成功值套用一個非同步的 mapper。
+    /// </summary>
+    /// <typeparam name="T">原始成功值的類型。</typeparam>
+    /// <typeparam name="TU">轉換後成功值的類型。</typeparam>
+    /// <typeparam name="TE">錯誤的類型。</typeparam>
+    /// <param name="result">來源結果。</param>
+    /// <param name="mapper">非同步映射函數。</param>
+    /// <returns>若成功則為包含轉換後值的結果；若失敗則保留原錯誤。</returns>
+    /// <remarks>失敗時走同步完成路徑，不建立 async 狀態機（詳見 <see cref="BindAsync{T,TU,TE}(Result{T,TE}, Func{T, ValueTask{Result{TU,TE}}})"/> 的備註）。</remarks>
+    public static ValueTask<Result<TU, TE>> MapAsync<T, TU, TE>(
+        this Result<T, TE> result,
+        Func<T, ValueTask<TU>> mapper)
+        where T : notnull
+        where TU : notnull
+        where TE : notnull
+        => result.TryGetOk(out var value, out var error)
+            ? MapCore<TU, TE>(mapper(value))
+            : new ValueTask<Result<TU, TE>>(Result<TU, TE>.Err(error));
+
+    /// <summary>
+    /// 以同步的 <see cref="Result{T,TE}"/> 為起點，對成功值套用一個非同步的 mapper，並傳入 <see cref="CancellationToken"/>。
+    /// </summary>
+    /// <remarks>僅在需要執行 <paramref name="mapper"/> 時才檢查取消狀態；若來源為 Err，本方法為 no-op，不會拋出。</remarks>
+    public static ValueTask<Result<TU, TE>> MapAsync<T, TU, TE>(
+        this Result<T, TE> result,
+        Func<T, CancellationToken, ValueTask<TU>> mapper,
+        CancellationToken cancellationToken = default)
+        where T : notnull
+        where TU : notnull
+        where TE : notnull
+    {
+        if (!result.TryGetOk(out var value, out var error))
+        {
+            return new ValueTask<Result<TU, TE>>(Result<TU, TE>.Err(error));
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return MapCore<TU, TE>(mapper(value, cancellationToken));
+    }
+
+    /// <summary>
+    /// 將 <c>ValueTask&lt;TU&gt;</c> 包裝回 <c>ValueTask&lt;Result&lt;TU, TE&gt;&gt;</c>。
+    /// </summary>
+    /// <remarks>
+    /// 抽出為獨立的區域方法，是為了讓 <c>MapAsync</c> 的 Err 短路路徑維持非 async——
+    /// 只有真的需要 await mapper 結果時才進入 async 狀態機。
+    /// </remarks>
+    private static async ValueTask<Result<TU, TE>> MapCore<TU, TE>(ValueTask<TU> pending)
+        where TU : notnull
+        where TE : notnull
+        => Result<TU, TE>.Ok(await pending.ConfigureAwait(false));
+
+    /// <summary>
+    /// 以同步的 <see cref="Result{T,TE}"/> 為起點，對錯誤套用一個非同步的 mapper。
+    /// </summary>
+    /// <typeparam name="T">成功值的類型。</typeparam>
+    /// <typeparam name="TE">原始錯誤類型。</typeparam>
+    /// <typeparam name="TF">轉換後錯誤類型。</typeparam>
+    /// <param name="result">來源結果。</param>
+    /// <param name="mapper">非同步錯誤映射函數。</param>
+    /// <returns>若失敗則為包含轉換後錯誤的結果；若成功則保留原值。</returns>
+    /// <remarks>Ok 時走同步完成路徑，不建立 async 狀態機。</remarks>
+    public static ValueTask<Result<T, TF>> MapErrAsync<T, TE, TF>(
+        this Result<T, TE> result,
+        Func<TE, ValueTask<TF>> mapper)
+        where T : notnull
+        where TE : notnull
+        where TF : notnull
+        => result.TryGetOk(out var value, out var error)
+            ? new ValueTask<Result<T, TF>>(Result<T, TF>.Ok(value))
+            : MapErrCore<T, TF>(mapper(error));
+
+    /// <summary>
+    /// 以同步的 <see cref="Result{T,TE}"/> 為起點，對錯誤套用非同步 mapper，並傳入 <see cref="CancellationToken"/>。
+    /// </summary>
+    /// <remarks>僅在需要執行 <paramref name="mapper"/> 時才檢查取消狀態；若來源為 Ok，本方法為 no-op，不會拋出。</remarks>
+    public static ValueTask<Result<T, TF>> MapErrAsync<T, TE, TF>(
+        this Result<T, TE> result,
+        Func<TE, CancellationToken, ValueTask<TF>> mapper,
+        CancellationToken cancellationToken = default)
+        where T : notnull
+        where TE : notnull
+        where TF : notnull
+    {
+        if (result.TryGetOk(out var value, out var error))
+        {
+            return new ValueTask<Result<T, TF>>(Result<T, TF>.Ok(value));
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return MapErrCore<T, TF>(mapper(error, cancellationToken));
+    }
+
+    /// <summary>
+    /// 將 <c>ValueTask&lt;TF&gt;</c> 包裝回 <c>ValueTask&lt;Result&lt;T, TF&gt;&gt;</c>，理由同 <see cref="MapCore{TU,TE}"/>。
+    /// </summary>
+    private static async ValueTask<Result<T, TF>> MapErrCore<T, TF>(ValueTask<TF> pending)
+        where T : notnull
+        where TF : notnull
+        => Result<T, TF>.Err(await pending.ConfigureAwait(false));
+
+    /// <summary>
+    /// 以同步的 <see cref="Result{T,TE}"/> 為起點，失敗時執行非同步的備援工廠函數。
+    /// </summary>
+    /// <typeparam name="T">成功值的類型。</typeparam>
+    /// <typeparam name="TE">錯誤類型。</typeparam>
+    /// <param name="result">來源結果。</param>
+    /// <param name="factory">非同步備援工廠函數，接收目前的錯誤。</param>
+    /// <returns>若成功則回傳自身；若失敗則回傳工廠函數的結果。</returns>
+    /// <remarks>
+    /// <para>
+    /// 這是「快取命中則直接使用、未命中才非同步抓取」模式的自然寫法——
+    /// 來源是同步取得的快取查詢結果，備援才是非同步的資料庫／API 呼叫。
+    /// </para>
+    /// <para>Ok 時走同步完成路徑，不建立 async 狀態機，也不會執行 <paramref name="factory"/>。</para>
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// var user = await cache.Lookup(id)                  // 同步：Result&lt;User, Error&gt;
+    ///     .OrElseAsync(err =&gt; repository.FindAsync(id));  // 非同步備援
+    /// </code>
+    /// </example>
+    public static ValueTask<Result<T, TE>> OrElseAsync<T, TE>(
+        this Result<T, TE> result,
+        Func<TE, ValueTask<Result<T, TE>>> factory)
+        where T : notnull
+        where TE : notnull
+        => result.TryGetErr(out var error)
+            ? factory(error)
+            : new ValueTask<Result<T, TE>>(result);
+
+    /// <summary>
+    /// 以同步的 <see cref="Result{T,TE}"/> 為起點的非同步備援，並傳入 <see cref="CancellationToken"/>。
+    /// </summary>
+    /// <remarks>僅在需要執行 <paramref name="factory"/> 時才檢查取消狀態；若來源為 Ok，本方法為 no-op，不會拋出。</remarks>
+    public static ValueTask<Result<T, TE>> OrElseAsync<T, TE>(
+        this Result<T, TE> result,
+        Func<TE, CancellationToken, ValueTask<Result<T, TE>>> factory,
+        CancellationToken cancellationToken = default)
+        where T : notnull
+        where TE : notnull
+    {
+        if (!result.TryGetErr(out var error))
+        {
+            return new ValueTask<Result<T, TE>>(result);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return factory(error, cancellationToken);
+    }
+
+    /// <summary>
+    /// 以同步的 <see cref="Result{T,TE}"/> 為起點，成功時執行非同步的副作用（不改變結果）。
+    /// </summary>
+    /// <typeparam name="T">成功值的類型。</typeparam>
+    /// <typeparam name="TE">錯誤類型。</typeparam>
+    /// <param name="result">來源結果。</param>
+    /// <param name="action">非同步動作。</param>
+    /// <returns>原始結果，用於鏈式呼叫。</returns>
+    /// <remarks>Err 時走同步完成路徑，不建立 async 狀態機，也不會執行 <paramref name="action"/>。</remarks>
+    public static ValueTask<Result<T, TE>> TapAsync<T, TE>(
+        this Result<T, TE> result,
+        Func<T, ValueTask> action)
+        where T : notnull
+        where TE : notnull
+        => result.TryGetOk(out var value)
+            ? TapCore(result, action(value))
+            : new ValueTask<Result<T, TE>>(result);
+
+    /// <summary>
+    /// 以同步的 <see cref="Result{T,TE}"/> 為起點的非同步副作用，並傳入 <see cref="CancellationToken"/>。
+    /// </summary>
+    /// <remarks>僅在需要執行 <paramref name="action"/> 時才檢查取消狀態；若來源為 Err，本方法為 no-op，不會拋出。</remarks>
+    public static ValueTask<Result<T, TE>> TapAsync<T, TE>(
+        this Result<T, TE> result,
+        Func<T, CancellationToken, ValueTask> action,
+        CancellationToken cancellationToken = default)
+        where T : notnull
+        where TE : notnull
+    {
+        if (!result.TryGetOk(out var value))
+        {
+            return new ValueTask<Result<T, TE>>(result);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return TapCore(result, action(value, cancellationToken));
+    }
+
+    /// <summary>
+    /// 以同步的 <see cref="Result{T,TE}"/> 為起點，失敗時執行非同步的副作用（不改變結果）。
+    /// </summary>
+    /// <typeparam name="T">成功值的類型。</typeparam>
+    /// <typeparam name="TE">錯誤類型。</typeparam>
+    /// <param name="result">來源結果。</param>
+    /// <param name="action">非同步動作，接收錯誤。</param>
+    /// <returns>原始結果，用於鏈式呼叫。</returns>
+    /// <remarks>Ok 時走同步完成路徑，不建立 async 狀態機，也不會執行 <paramref name="action"/>。</remarks>
+    public static ValueTask<Result<T, TE>> TapErrAsync<T, TE>(
+        this Result<T, TE> result,
+        Func<TE, ValueTask> action)
+        where T : notnull
+        where TE : notnull
+        => result.TryGetErr(out var error)
+            ? TapCore(result, action(error))
+            : new ValueTask<Result<T, TE>>(result);
+
+    /// <summary>
+    /// 以同步的 <see cref="Result{T,TE}"/> 為起點的非同步錯誤副作用，並傳入 <see cref="CancellationToken"/>。
+    /// </summary>
+    /// <remarks>僅在需要執行 <paramref name="action"/> 時才檢查取消狀態；若來源為 Ok，本方法為 no-op，不會拋出。</remarks>
+    public static ValueTask<Result<T, TE>> TapErrAsync<T, TE>(
+        this Result<T, TE> result,
+        Func<TE, CancellationToken, ValueTask> action,
+        CancellationToken cancellationToken = default)
+        where T : notnull
+        where TE : notnull
+    {
+        if (!result.TryGetErr(out var error))
+        {
+            return new ValueTask<Result<T, TE>>(result);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return TapCore(result, action(error, cancellationToken));
+    }
+
+    /// <summary>
+    /// 等待副作用完成後回傳原始結果，供 Tap 系列的 sync-source 多載共用。
+    /// </summary>
+    /// <remarks>
+    /// 抽出為獨立方法，是為了讓 Tap 系列的短路路徑維持非 async——
+    /// 只有真的需要 await 副作用時才進入 async 狀態機。
+    /// </remarks>
+    private static async ValueTask<Result<T, TE>> TapCore<T, TE>(Result<T, TE> result, ValueTask pending)
+        where T : notnull
+        where TE : notnull
+    {
+        await pending.ConfigureAwait(false);
         return result;
     }
 }

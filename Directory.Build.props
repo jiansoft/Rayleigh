@@ -2,6 +2,16 @@
 
   <PropertyGroup>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+
+    <!--
+      顯式鎖定為 C# 12（net8.0 的預設值），而非讓各 TFM 各自採用預設語言版本。
+      若不鎖定，net8.0 會以 C# 12 編譯、net10.0 以 C# 14 編譯，導致使用 C# 13+ 語法時
+      「只有 net8.0 建置失敗」——問題會延遲到 CI 的多目標建置才浮現，而非在本機第一時間發現。
+      鎖定為兩個 TFM 的語言版本交集，可確保任何新語法在本機就立刻被驗證。
+      未來若停止支援 net8.0，再一併調高此值。
+    -->
+    <LangVersion>12.0</LangVersion>
+
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

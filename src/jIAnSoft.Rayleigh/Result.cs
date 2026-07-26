@@ -73,6 +73,40 @@ public readonly record struct Err<TE>(TE Error)
 // ================================
 
 /// <summary>
+/// 表示 <see cref="Result{T,TE}"/> 的三種內部狀態。
+/// </summary>
+/// <remarks>
+/// <para>
+/// 刻意將 <see cref="Uninitialized"/> 指定為 <c>0</c>，使 <c>default(Result&lt;T,TE&gt;)</c>
+/// （struct 的全零初始化）自然落在此狀態，讓「未初始化」成為可被明確偵測的第一級狀態，
+/// 而不是依賴對 <c>_error</c> 做 null 判斷來間接推論。
+/// </para>
+/// <para>
+/// 這是本型別能同時支援參考型別與值型別 <c>TE</c> 的關鍵：先前的實作以 <c>_error is null</c>
+/// 判斷未初始化，但在 <c>where TE : notnull</c> 之下 <c>TE?</c> 僅是可為 null 的標註而非
+/// <see cref="Nullable{T}"/>，因此當 <c>TE</c> 為 enum 或 struct 時該判斷會被 JIT 常數摺疊為
+/// <c>false</c>，使整套防護在該泛型具現化中靜默失效——例如 <c>default(Result&lt;User, UserError&gt;)</c>
+/// 會偽裝成一個合法的 <c>Err(UserError.NotFound)</c>。改用明確的狀態欄位後，偵測對所有 <c>TE</c> 一致生效。
+/// </para>
+/// <para>
+/// 使用 <see cref="byte"/> 作為基礎型別，佔用空間與原本的 <see cref="bool"/> 欄位相同，
+/// 在所有實測過的具現化中 struct 大小完全不變（例如 <c>Result&lt;int, MyEnum&gt;</c> 為 12 bytes、
+/// <c>Result&lt;Guid, string&gt;</c> 為 32 bytes），因此本修正的執行期成本為零。
+/// </para>
+/// </remarks>
+internal enum ResultState : byte
+{
+    /// <summary>從未經由 <c>Ok</c> 或 <c>Err</c> 建構，即 <c>default(Result&lt;T,TE&gt;)</c>。</summary>
+    Uninitialized = 0,
+
+    /// <summary>成功，<c>_value</c> 有效。</summary>
+    Ok = 1,
+
+    /// <summary>失敗，<c>_error</c> 有效。</summary>
+    Err = 2
+}
+
+/// <summary>
 /// 表示一個操作的結果，可以是成功的值或錯誤資訊。
 /// 用於取代 Exception 驅動的流程控制。
 /// </summary>
@@ -101,6 +135,34 @@ public readonly record struct Err<TE>(TE Error)
 ///   <item><description>AggressiveInlining：所有關鍵方法會被 JIT 內聯</description></item>
 ///   <item><description>無例外開銷：錯誤處理不需要建立例外物件或展開堆疊</description></item>
 /// </list>
+///
+/// <para><b>已知限制：<typeparamref name="T"/> 與 <typeparamref name="TE"/> 不可為相同型別</b></para>
+/// <para>
+/// 本型別同時提供 <c>implicit operator Result&lt;T,TE&gt;(T)</c> 與 <c>implicit operator Result&lt;T,TE&gt;(TE)</c>。
+/// 在宣告端這是合法的（<typeparamref name="T"/> 與 <typeparamref name="TE"/> 是兩個不同的型別參數），
+/// 但當兩者被具現化為<b>同一個</b>型別時（例如 <c>Result&lt;string, string&gt;</c>），這兩個運算子的簽章會完全重複，
+/// 使用隱式轉換的程式碼會得到編譯錯誤 <c>CS0457（使用者定義的轉換模稜兩可）</c>。
+/// </para>
+/// <para>
+/// 這是 C# 泛型的固有限制，無法在型別內部解決。<b>解法</b>是改用明確的工廠方法或
+/// <see cref="Ok{T}"/>／<see cref="Err{TE}"/> 包裹記錄，兩者都不受影響：
+/// </para>
+/// <code>
+/// // ✗ 無法編譯（CS0457）：T 與 TE 同為 string
+/// Result&lt;string, string&gt; Bad(bool ok) => ok ? "value" : "error";
+///
+/// // ✓ 明確工廠方法
+/// Result&lt;string, string&gt; Good1(bool ok)
+///     => ok ? Result&lt;string, string&gt;.Ok("value") : Result&lt;string, string&gt;.Err("error");
+///
+/// // ✓ Ok/Err 包裹記錄（意圖更清楚，且仍可用隱式轉換）
+/// Result&lt;string, string&gt; Good2(bool ok)
+///     => ok ? new Ok&lt;string&gt;("value") : new Err&lt;string&gt;("error");
+/// </code>
+/// <para>
+/// 若你的錯誤型別本來就是 <c>string</c>，更推薦定義一個專用的錯誤型別（enum、record 或
+/// <c>readonly record struct</c>）——這不僅避開本限制，也讓錯誤在型別系統中有明確語意。
+/// </para>
 ///
 /// <para><b>何時使用 Result vs Exception</b></para>
 /// <list type="bullet">
@@ -154,33 +216,44 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     /// 失敗時的內部錯誤；成功或未初始化時為 <c>default</c>。
     /// </summary>
     /// <remarks>
-    /// <para>
     /// 型別為 <c>TE?</c> 同樣是為了配合 <see cref="IsOk"/> 上的 <see cref="MemberNotNullWhenAttribute"/>。
-    /// </para>
-    /// <para>
-    /// 由於 <see cref="Err(TE)"/> 建構子會透過 <c>ArgumentNullException.ThrowIfNull</c> 強制錯誤值不可為 <c>null</c>，
-    /// 「正常建構出的 Err」永遠有非 null 的 <c>_error</c>；因此 <c>_error is null</c> 可作為判斷「這是 <c>default(Result&lt;T,TE&gt;)</c>
-    /// 未初始化狀態」的可靠依據，這正是 <see cref="ThrowIfUninitialized"/> 採用的判斷式。
-    /// </para>
     /// </remarks>
     private readonly TE? _error;
+
+    /// <summary>
+    /// 目前的狀態：未初始化、成功或失敗。
+    /// </summary>
+    /// <remarks>
+    /// 取代先前的 <c>bool IsOk</c> 支援欄位。三態設計讓 <c>default(Result&lt;T,TE&gt;)</c>
+    /// 能與「錯誤值恰好等於 <c>default(TE)</c> 的合法 Err」明確區分，詳見 <see cref="ResultState"/>。
+    /// </remarks>
+    private readonly ResultState _state;
 
     /// <summary>
     /// 取得一個值，指出操作是否成功。
     /// </summary>
     [MemberNotNullWhen(true, nameof(_value))]
     [MemberNotNullWhen(false, nameof(_error))]
-    public bool IsOk { get; }
+    public bool IsOk
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _state == ResultState.Ok;
+    }
 
     /// <summary>
     /// 取得一個值，指出操作是否失敗。
     /// </summary>
+    /// <remarks>
+    /// 定義為「非 Ok」而非「等於 <see cref="ResultState.Err"/>」，因此未初始化的 Result 其
+    /// <see cref="IsErr"/> 仍為 <c>true</c>，維持與先前版本一致的語意。
+    /// 若需要主動偵測未初始化狀態，請呼叫任一會存取內部值的成員（它們都會拋出 <see cref="InvalidOperationException"/>）。
+    /// </remarks>
     [MemberNotNullWhen(true, nameof(_error))]
     [MemberNotNullWhen(false, nameof(_value))]
     public bool IsErr
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => !IsOk;
+        get => _state != ResultState.Ok;
     }
 
     #region Contains / Conditional Checks
@@ -307,7 +380,7 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     {
         _value = value;
         _error = default;
-        IsOk = true;
+        _state = ResultState.Ok;
     }
 
     /// <summary>
@@ -316,9 +389,8 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     /// <param name="error">失敗的錯誤資訊，不可為 <c>null</c>。</param>
     /// <exception cref="ArgumentNullException">當 <paramref name="error"/> 為 <c>null</c> 時擲出。</exception>
     /// <remarks>
-    /// 強制 <paramref name="error"/> 不可為 <c>null</c> 是本型別「未初始化偵測」機制的基礎：
-    /// 只要正常建構的 Err 一定有非 null 的 <c>_error</c>，<see cref="ThrowIfUninitialized"/>
-    /// 就能單純以 <c>_error is null</c> 區分出「合法的 Err」與「<c>default(Result&lt;T,TE&gt;)</c> 未初始化 struct」。
+    /// 強制 <paramref name="error"/> 不可為 <c>null</c> 是為了避免建立出「失敗但沒有錯誤資訊」的 Result；
+    /// 未初始化狀態的偵測則由獨立的 <see cref="_state"/> 欄位負責，兩者不再互相耦合。
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Result(TE error)
@@ -326,7 +398,7 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
         ArgumentNullException.ThrowIfNull(error);
         _value = default;
         _error = error;
-        IsOk = false;
+        _state = ResultState.Err;
     }
 
     /// <summary>
@@ -341,14 +413,13 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     /// <see cref="Deconstruct"/>——這幾個成員刻意不呼叫本方法，詳見 <see cref="Equals(Result{T,TE})"/> 的備註。
     /// </para>
     /// <para>
-    /// 判斷式為 <c>!IsOk &amp;&amp; _error is null</c>：由於失敗通道的建構子（<c>private Result(TE error)</c>）保證正常的 Err 一定有非 null 的錯誤值，
-    /// 唯一會同時滿足「不是 Ok」且「_error 為 null」的情況，就是 struct 從未被任何建構子初始化過。
+    /// 判斷式直接比對 <see cref="_state"/>，因此對參考型別與值型別的 <typeparamref name="TE"/> 一致生效。
     /// </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ThrowIfUninitialized()
     {
-        if (!IsOk && _error is null)
+        if (_state == ResultState.Uninitialized)
         {
             ThrowUninitializedException();
         }
@@ -359,7 +430,14 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     /// 與 <see cref="CompareTo(Result{T,TE})"/>（比較 <c>other</c> 是否未初始化時）共用。
     /// </summary>
     /// <exception cref="InvalidOperationException">一律擲出。</exception>
+    /// <remarks>
+    /// 標記為 <see cref="MethodImplOptions.NoInlining"/>：呼叫端（<see cref="ThrowIfUninitialized"/> 及其所有
+    /// <see cref="MethodImplOptions.AggressiveInlining"/> 的使用者）屬於熱路徑，若讓「建立例外物件」這段冷路徑 IL
+    /// 被內聯進每一個呼叫點，會撐大方法體積並反過來使外層方法超過 JIT 的內聯門檻。
+    /// 這與 .NET runtime 自身 <c>ThrowHelper</c> 的做法一致。
+    /// </remarks>
     [DoesNotReturn]
+    [MethodImpl(MethodImplOptions.NoInlining)]
     private static void ThrowUninitializedException()
         => throw new InvalidOperationException("Result is in an uninitialized state (default struct).");
 
@@ -908,7 +986,9 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     /// </param>
     /// <returns>本方法一律拋出例外，不會實際回傳；回傳型別 <typeparamref name="T"/> 僅用於讓呼叫端能以運算式形式使用（<c>IsOk ? _value : ThrowErrException()</c>）。</returns>
     /// <exception cref="InvalidOperationException">一律擲出。</exception>
+    /// <remarks>標記為 <see cref="MethodImplOptions.NoInlining"/>，理由同 <see cref="ThrowUninitializedException"/>。</remarks>
     [DoesNotReturn]
+    [MethodImpl(MethodImplOptions.NoInlining)]
     private T ThrowErrException(string? message = null)
         => throw new InvalidOperationException(message ?? $"Result is Err: {_error}");
 
@@ -923,7 +1003,9 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     /// </param>
     /// <returns>本方法一律拋出例外，不會實際回傳；回傳型別 <typeparamref name="TE"/> 僅用於讓呼叫端能以運算式形式使用（<c>IsErr ? _error : ThrowOkException()</c>）。</returns>
     /// <exception cref="InvalidOperationException">一律擲出。</exception>
+    /// <remarks>標記為 <see cref="MethodImplOptions.NoInlining"/>，理由同 <see cref="ThrowUninitializedException"/>。</remarks>
     [DoesNotReturn]
+    [MethodImpl(MethodImplOptions.NoInlining)]
     private TE ThrowOkException(string? message = null)
         => throw new InvalidOperationException(message ?? $"Result is Ok: {_value}");
 
@@ -1024,10 +1106,11 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
             return Result<TResult, TE>.Err(_error);
         }
 
-        var intermediate = selector(_value);
-        return intermediate.IsOk
-            ? Result<TResult, TE>.Ok(resultSelector(_value, intermediate.Unwrap()))
-            : Result<TResult, TE>.Err(intermediate.UnwrapErr());
+        // 以單次 TryGetOk 取代「IsOk 判斷 + Unwrap()/UnwrapErr()」的組合：
+        // 後者會讓同一個 intermediate 重複執行 ThrowIfUninitialized 與狀態分支共三次。
+        return selector(_value).TryGetOk(out var value, out var error)
+            ? Result<TResult, TE>.Ok(resultSelector(_value, value))
+            : Result<TResult, TE>.Err(error);
     }
 
     #endregion
@@ -1136,17 +1219,24 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     /// <see cref="System.Collections.Generic.HashSet{T}"/> 或偵錯工具（例如監看視窗）等場景。
     /// 若需要偵測未初始化狀態並主動阻擋，請使用會拋出例外的成員（如 <see cref="CompareTo(Result{T,TE})"/> 或 <see cref="Unwrap"/>）。
     /// </para>
+    /// <para>
+    /// 比較以 <see cref="_state"/> 為第一道判準，因此未初始化的 Result <b>不會</b>等於錯誤值恰好為
+    /// <c>default(TE)</c> 的合法 Err（例如 <c>default(Result&lt;int, MyEnum&gt;)</c> 不等於 <c>Err(MyEnum.None)</c>）。
+    /// </para>
     /// </remarks>
     public bool Equals(Result<T, TE> other)
     {
-        if (IsOk != other.IsOk)
+        if (_state != other._state)
         {
             return false;
         }
 
-        return IsOk
-            ? EqualityComparer<T>.Default.Equals(_value, other._value)
-            : EqualityComparer<TE>.Default.Equals(_error, other._error);
+        return _state switch
+        {
+            ResultState.Ok => EqualityComparer<T>.Default.Equals(_value, other._value),
+            ResultState.Err => EqualityComparer<TE>.Default.Equals(_error, other._error),
+            _ => true // 兩者皆為未初始化
+        };
     }
 
     /// <inheritdoc/>
@@ -1159,9 +1249,12 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     /// 與 <see cref="Equals(Result{T,TE})"/> 一致，對未初始化的 <see cref="Result{T,TE}"/> 呼叫本方法不會拋出例外
     /// （避免破壞雜湊容器的內部不變性），詳見 <see cref="Equals(Result{T,TE})"/> 的備註。
     /// </remarks>
-    public override int GetHashCode() => IsOk
-        ? HashCode.Combine(true, _value)
-        : HashCode.Combine(false, _error);
+    public override int GetHashCode() => _state switch
+    {
+        ResultState.Ok => HashCode.Combine(ResultState.Ok, _value),
+        ResultState.Err => HashCode.Combine(ResultState.Err, _error),
+        _ => 0
+    };
 
     /// <summary>
     /// 傳回目前 <see cref="Result{T, TE}"/> 的字串表示，格式為 <c>Ok(value)</c> 或 <c>Err(error)</c>。
@@ -1169,13 +1262,20 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     /// <remarks>
     /// <para>
     /// 與 <see cref="Equals(Result{T,TE})"/> 一致，對未初始化的 <see cref="Result{T,TE}"/> 呼叫本方法不會拋出例外，
-    /// 而是回傳 <c>"Err()"</c>。
+    /// 而是回傳 <c>"Uninitialized"</c>。此輸出取代了先前版本的 <c>"Err()"</c>——後者在
+    /// <typeparamref name="TE"/> 為 enum 時會顯示成具誤導性的 <c>"Err(None)"</c>，讓未初始化的 struct
+    /// 在偵錯工具中看起來像是一個合法的失敗結果。
     /// </para>
     /// <para><b>安全性提醒</b>：本方法會將 <typeparamref name="T"/>／<typeparamref name="TE"/> 的內容直接格式化進輸出字串。
     /// 若這些型別可能承載敏感資訊（密碼、Token、個資等），請避免讓 <see cref="ToString"/> 的結果流入記錄檔（log）、
     /// 遙測系統或直接回傳給用戶端。</para>
     /// </remarks>
-    public override string ToString() => IsOk ? $"Ok({_value})" : $"Err({_error})";
+    public override string ToString() => _state switch
+    {
+        ResultState.Ok => $"Ok({_value})",
+        ResultState.Err => $"Err({_error})",
+        _ => "Uninitialized"
+    };
 
     /// <summary>比較兩個 Result 是否相等。</summary>
     public static bool operator ==(Result<T, TE> left, Result<T, TE> right) => left.Equals(right);
@@ -1238,7 +1338,9 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
             return CompareTo(other);
         }
 
-        throw new ArgumentException($"Object must be of type {nameof(Result<T, TE>)}");
+        // 使用 typeof(...) 而非 nameof(...)：後者只會產生 "Result"，遺漏泛型參數，
+        // 對呼叫端判斷「應該傳入哪個具體型別」毫無幫助。
+        throw new ArgumentException($"Object must be of type {typeof(Result<T, TE>)}", nameof(obj));
     }
 
     /// <summary>

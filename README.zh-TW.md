@@ -277,6 +277,109 @@ Result<OrderConfirmation, AppError> confirmation = await ValidateOrderAsync(requ
 > 只有在真的要執行委派時才會檢查（並轉發）取消狀態——短路的 `Err`/`None` 分支不會觀察到取消，
 > 與函式庫其他部分的 no-op 語意一致。
 
+### 集合操作
+
+#### 安全地進入 Option 世界
+
+BCL 的 `FirstOrDefault` 與 `GetValueOrDefault` 無法區分「找不到」與「找到了一個恰好等於預設值的元素」。
+對值型別而言，這會靜默地遺失資訊：
+
+```csharp
+var scores = new[] { 0, 5, 10 };
+
+scores.FirstOrDefault();             // 0  ─┬─ 兩者無從區分
+Array.Empty<int>().FirstOrDefault(); // 0  ─┘
+
+scores.FirstOrNone();                // Some(0)
+Array.Empty<int>().FirstOrNone();    // None
+```
+
+字典查詢也是同樣的問題：
+
+```csharp
+var counts = new Dictionary<string, int> { ["a"] = 0 };
+
+counts.GetValueOrDefault("a");     // 0  ─┬─ 兩者無從區分
+counts.GetValueOrDefault("miss");  // 0  ─┘
+
+counts.GetValueOrNone("a");        // Some(0)
+counts.GetValueOrNone("miss");     // None
+```
+
+完整的入口方法：
+
+```csharp
+source.FirstOrNone();               // Option<T>
+source.FirstOrNone(x => x > 10);    // Option<T>，找到第一個符合者即短路
+source.SingleOrNone();              // 空或多於一個皆為 None（永不拋例外）
+source.ElementAtOrNone(3);          // 超出範圍為 None（含負數索引）
+dictionary.GetValueOrNone(key);     // Option<TValue>
+```
+
+#### `Sequence()` — 全有或全無
+
+把「集合的 Option/Result」反轉為「Option/Result 的集合」。遇到第一個 `None`/`Err` 即短路：
+
+```csharp
+Option<int>[] all  = [Option<int>.Some(1), Option<int>.Some(2)];
+Option<int>[] some = [Option<int>.Some(1), Option<int>.None];
+
+all.Sequence();   // Some([1, 2])
+some.Sequence();  // None
+
+// Result 版本：回傳「第一個」遇到的錯誤，並在該處停止列舉
+var validated = inputs.Select(Validate).Sequence();   // Result<List<Valid>, Error>
+```
+
+#### `Partition()` — 蒐集所有錯誤
+
+`Sequence()` 會短路，`Partition()` 則走訪整個序列並蒐集全部內容。
+表單驗證正是需要這種行為的場景 —— 使用者應該一次看到所有問題：
+
+```csharp
+var (users, errors) = dtos.Select(Validate).Partition();
+
+if (errors.Count > 0)
+{
+    return BadRequest(errors);   // 回報「全部」驗證失敗，而非只有第一個
+}
+
+return Ok(users);
+```
+
+#### `Values()` — 保留 Some、丟棄 None
+
+```csharp
+Option<int>[] options = [Option<int>.Some(1), Option<int>.None, Option<int>.Some(3)];
+options.Values();   // [1, 3]
+```
+
+> **`Values()` 與 `Sequence()` 的差異**
+> `Values()` 忽略 `None`、盡量保留；`Sequence()` 則視任一 `None` 為整體失敗。
+
+### 從同步值開始非同步管線
+
+以 `Task`/`ValueTask` 為 `this` 的多載適用於管線**本來就是**非同步的情況。
+當鏈條的**起點**是同步取得的 `Result`/`Option` 時，請使用以值本身為 `this` 的多載：
+
+```csharp
+// Before — 為了滿足型別而多配置一個 Task
+await Task.FromResult(Validate(input)).BindAsync(v => SaveAsync(v));
+
+// After
+await Validate(input).BindAsync(v => SaveAsync(v));
+```
+
+這些多載刻意**不**宣告為 `async`。在短路路徑（`Err`/`None`）上，它們直接回傳已完成的 `ValueTask` ——
+沒有狀態機，也沒有任何配置：
+
+```csharp
+var pending = Result<int, string>.Err("boom")
+    .BindAsync(x => new ValueTask<Result<int, string>>(Result<int, string>.Ok(x)));
+
+pending.IsCompletedSuccessfully;   // true — 完全沒有碰到執行緒集區
+```
+
 ### Unit 型別
 
 當沒有有意義的回傳值時，使用 `Unit` 作為 `Result` 的成功型別：
@@ -314,6 +417,22 @@ var maybeError = result.Err();
 - **模式比對** — `Deconstruct` 支援 `switch` 表達式與 `is` 模式。
 - **非同步支援** — 提供 `Task<T>` 和 `ValueTask<T>` 的擴充方法：`BindAsync`、`MapAsync`、`OrElseAsync`、`TapAsync` 等。
 - **隱式轉換** — `Result<T, E>` 可直接從 `T`、`E`、`Ok<T>` 或 `Err<E>` 建立，讓方法回傳更簡潔。
+- **未初始化狀態即中毒** — `default(Result<T, E>)` **不是**一個合法的結果。由於 C# 允許任何 struct 被零值初始化
+  （陣列元素、未指派的欄位），`Result` 會獨立追蹤「未初始化」狀態，任何要讀取內部值的成員都會拋出
+  `InvalidOperationException`。此保證對**所有** `E` 都成立，包含預設值本身就是有意義成員的 `enum` 與 `struct` 錯誤型別。
+- **支援 AOT 與 Trimming** — 已宣告 `IsAotCompatible` 與 `IsTrimmable`；無反射、無動態程式碼產生。
+
+> **已知限制 — `T` 與 `E` 不可為相同型別**
+> `Result<T, E>` 同時宣告了來自 `T` 與 `E` 的隱式轉換。當兩者被具現化為同一型別時
+> （例如 `Result<string, string>`），這兩個運算子的簽章會重複，使用隱式轉換會得到編譯錯誤 `CS0457`。
+> 請改用明確的工廠方法或包裹記錄：
+>
+> ```csharp
+> Result<string, string> r = ok ? new Ok<string>("value") : new Err<string>("error");
+> ```
+>
+> 更推薦的做法是為錯誤定義專用型別（`enum`、`record` 或 `readonly record struct`）——
+> 這不僅避開本限制，也讓錯誤在型別系統中具備明確語意。
 
 ## API 參考
 
@@ -383,8 +502,16 @@ var maybeError = result.Err();
 | `OptionExtensions` | `OrNull()` | 將 `Option<T>` 轉換為 `T?`（支援值型別與參考型別） |
 | `NullableExtensions` | `ToOption()` | 將 `T?`（參考或值型別）轉換為 `Option<T>` |
 | `EnumerableExtensions` | `Values()` | 從 `IEnumerable<Option<T>>` 過濾出所有 `Some` 值 |
+| `EnumerableExtensions` | `FirstOrNone()` / `FirstOrNone(predicate)` | 取第一個元素為 `Option<T>`；空序列或無符合者為 `None` |
+| `EnumerableExtensions` | `SingleOrNone()` | 取唯一元素為 `Option<T>`；空**或**多於一個皆為 `None`（不拋例外） |
+| `EnumerableExtensions` | `ElementAtOrNone(index)` | 取指定索引的元素為 `Option<T>`；超出範圍為 `None` |
+| `EnumerableExtensions` | `GetValueOrNone(key)` | 字典查詢為 `Option<TValue>`；鍵不存在為 `None` |
+| `EnumerableExtensions` | `Sequence()` | `IEnumerable<Option<T>>` → `Option<List<T>>`、`IEnumerable<Result<T,E>>` → `Result<List<T>,E>`（會短路） |
+| `EnumerableExtensions` | `Partition()` | `IEnumerable<Result<T,E>>` → `(List<T> Values, List<E> Errors)`（蒐集**全部**錯誤） |
 | `OptionAsyncExtensions` | `BindAsync` / `MapAsync` / `OrElseAsync` | 非同步 Option 串接（`Task` 與 `ValueTask`） |
+| `OptionAsyncExtensions` | `Option<T>` 上的 `BindAsync` / `MapAsync` | 以**同步**的 `Option<T>` 為非同步管線起點，不需 `Task.FromResult` 包裝 |
 | `ResultAsyncExtensions` | `BindAsync` / `MapAsync` / `MapErrAsync` / `OrElseAsync` / `TapAsync` / `TapErrAsync` | 非同步 Result 串接（`Task` 與 `ValueTask`） |
+| `ResultAsyncExtensions` | `Result<T,E>` 上的 `BindAsync` / `MapAsync` | 以**同步**的 `Result<T,E>` 為非同步管線起點，短路時零配置 |
 
 ## 安全性注意事項
 
@@ -415,12 +542,45 @@ Rayleigh/
 ├── tests/
 │   └── jIAnSoft.Rayleigh.Tests/ # 單元測試（xUnit）
 ├── examples/
-│   └── jIAnSoft.Rayleigh.Examples/ # 可執行範例
+│   └── jIAnSoft.Rayleigh.Examples/ # 可執行教學（E01–E12，含新手導向的詳細註解）
 ├── benchmarks/
 │   └── jIAnSoft.Rayleigh.Benchmarks/ # BenchmarkDotNet 記憶體配置／效能基準測試
+├── CHANGELOG.md                      # 版本變更紀錄
 ├── LICENSE
 └── README.md
 ```
+
+## 動手學：可執行的教學範例
+
+`examples/` 不是零散的程式碼片段，而是一份**可以直接跑起來的教學**。
+十二個模組都會先解釋這個 API「為什麼存在」，再示範怎麼用，
+並把每一行程式碼和它的實際執行結果並排印出來：
+
+```bash
+# 從頭到尾跑一遍十二個模組
+dotnet run --project examples/jIAnSoft.Rayleigh.Examples
+
+# 或只跑其中一個——例如第 8 個模組（集合操作）
+dotnet run --project examples/jIAnSoft.Rayleigh.Examples -- 8
+```
+
+| # | 模組 | 內容 |
+|---|---|---|
+| E01 | Option 入門 | 什麼是 Option、四種建立方式、`IsSome` / `Contains` |
+| E02 | Option 轉換 | `Map` / `Filter` / `Bind` / `Flatten`，以及該怎麼選 |
+| E03 | Option 取值 | `Match`、`TryGetValue`、`Unwrap` 家族、`Or`、`Tap`、`Zip` |
+| E04 | Result 入門 | 帶著失敗原因、錯誤型別怎麼選、未初始化的陷阱 |
+| E05 | Result 轉換 | `Map` / `MapErr` / `Bind` 與鐵路導向程式設計 |
+| E06 | Result 取值 | `Match`、`TryGetOk`、備援、日誌、`Unit` 型別 |
+| E07 | Option 與 Result 互轉 | 什麼時候用哪一個，以及怎麼轉換 |
+| E08 | 集合操作 | `FirstOrNone`、`GetValueOrNone`、`Sequence`、`Partition`、`Values` |
+| E09 | 非同步管線 | `BindAsync` / `MapAsync`、零配置短路、`CancellationToken` |
+| E10 | LINQ 查詢語法 | 用 `from` / `where` / `select` 操作 Option 和 Result |
+| E11 | 實戰場景 | 設定檔、表單驗證、註冊流程、批次匯入、多層快取 |
+| E12 | 常見陷阱 | 十個值得看一次的錯誤寫法，每個都附正確版本 |
+
+> 這些模組是寫給第一次接觸 Option / Result 的人看的。
+> 如果你已經熟悉這些概念，E08 和 E12 應該是比較有新東西的兩篇。
 
 ## 建置
 
@@ -443,6 +603,37 @@ dotnet test
 ```bash
 dotnet run -c Release --project benchmarks/jIAnSoft.Rayleigh.Benchmarks
 ```
+
+只跑單一組，或以較少迭代快速驗證：
+
+```bash
+# 單一組
+dotnet run -c Release --project benchmarks/jIAnSoft.Rayleigh.Benchmarks -- --filter '*EnumerableBenchmarks*'
+
+# 快速模式（精度較低，但快得多）
+dotnet run -c Release --project benchmarks/jIAnSoft.Rayleigh.Benchmarks -- --filter '*' --job short
+```
+
+| 測試組 | 用以佐證的事項 |
+|---|---|
+| `OptionBenchmarks` | `Option<T>` 本身零配置；對照組呈現 closure 成本屬於**呼叫端**，而非函式庫 |
+| `ResultBenchmarks` | `Result<T,E>` 同上；未初始化防護在成功路徑上無可觀測成本 |
+| `EnumerableBenchmarks` | 集合組合子提供更強的語意，但沒有以效能為代價（與 LINQ 對應物比較） |
+| `AsyncPipelineBenchmarks` | sync-source 多載短路時配置 **0 B**，對照它所取代的 `Task.FromResult` 包裝 |
+| `ThrowPathBenchmarks` | 量化「為何錯誤路徑該用 `Result` 而非例外驅動流程控制」 |
+
+代表性數據（BenchmarkDotNet 0.15.8／AMD Ryzen 9 5950X／.NET 10.0.9）：
+
+| | Mean | Allocated |
+|---|---:|---:|
+| `Result.Ok(v)` | 0.13 ns | 0 B |
+| `result.UnwrapOr(-1)`（`Err` 錯誤路徑） | 0.16 ns | 0 B |
+| `try { result.Unwrap(); } catch { }`（同一情境，改用例外） | 2,100 ns | 384 B |
+| `err.BindAsync(...)`（sync-source 多載，短路） | 13.9 ns | **0 B** |
+| `Task.FromResult(err).BindAsync(...)`（它所取代的包裝寫法） | 38.4 ns | 240 B |
+
+> **關於精度：** 上表以 `--job short`（3 次迭代）取得，`Mean` 欄的誤差區間偏大，僅供方向性參考；
+> `Allocated` 欄則由 GC 計數器確定性量測，數值精確。若需可引用的精確耗時，請移除 `--job short` 重跑。
 
 ## 授權條款
 

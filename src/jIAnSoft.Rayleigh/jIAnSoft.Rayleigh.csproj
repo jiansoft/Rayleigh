@@ -7,7 +7,12 @@
     <!-- NuGet Package -->
     <Title>Rayleigh — Rust-inspired Option &amp; Result for C#</Title>
     <PackageId>jIAnSoft.Rayleigh</PackageId>
-    <Version>26.5.29</Version>
+    <!--
+      版本規則：本專案採 YY.M.D 形式的日期版本號。
+      本次由 26.5.29 提升至 26.7.26，包含一項行為變更（見 PackageReleaseNotes），
+      因此不視為單純的修訂號更新。
+    -->
+    <Version>26.7.26</Version>
     <Authors>Eddie</Authors>
     <Description>Zero-allocation, Rust-inspired Option and Result types for C#. Provides Option&lt;T&gt;, Result&lt;T, E&gt;, and Unit with full LINQ support, async extensions, and pattern matching integration.</Description>
     <PackageTags>option;result;functional;rust;monad;maybe;either;railway;rop;linq</PackageTags>
@@ -17,6 +22,49 @@
     <RepositoryUrl>https://github.com/jiansoft/Rayleigh</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>
+26.7.26
+
+修正 (Bug Fix)
+- [重要] Result&lt;T, TE&gt; 的「未初始化偵測」先前在 TE 為值型別（enum、struct）時完全失效。
+  舊實作以 `_error is null` 判斷，但 `where TE : notnull` 之下 `TE?` 僅是可為 null 的標註而非
+  Nullable&lt;TE&gt;，因此該條件會被 JIT 常數摺疊為 false。結果是 default(Result&lt;User, UserError&gt;)
+  會偽裝成合法的 Err(UserError.NotFound)（enum 預設值通常是有意義的成員），讓呼叫端拿到
+  看似正常的業務錯誤而無從追查。現改用明確的三態欄位，對所有 TE 一致生效。
+  此修正不改變 struct 大小（實測 Result&lt;int, MyEnum&gt; 仍為 12 bytes）。
+- EnumerableExtensions.Values() 對 null 來源改為「立即」拋出 ArgumentNullException，
+  而非延遲到列舉時才拋出 NullReferenceException。
+
+行為變更 (Behavior Change)
+- default(Result&lt;T, TE&gt;).ToString() 由 "Err()" 改為 "Uninitialized"。
+  舊輸出在 TE 為 enum 時會顯示為具誤導性的 "Err(None)"。此為偵錯輔助輸出，
+  不建議作為程式邏輯的判斷依據。
+- default(Result&lt;T, TE&gt;) 不再等於錯誤值恰好為 default(TE) 的合法 Err。
+  兩個未初始化的 Result 仍彼此相等，GetHashCode 亦維持一致。
+
+新增 (New API)
+- 集合入口：FirstOrNone、FirstOrNone(predicate)、SingleOrNone、ElementAtOrNone、GetValueOrNone。
+  相較 FirstOrDefault / GetValueOrDefault，這些方法對值型別同樣正確——
+  能區分「找不到」與「找到了一個恰好等於預設值的元素」。
+- 組合子：Sequence（Option 版與 Result 版，遇第一個 None/Err 即短路）、
+  Partition（走訪全部並蒐集所有錯誤，適合一次回報所有驗證問題）。
+- 非同步：新增以同步的 Result&lt;T,TE&gt; / Option&lt;T&gt; 本身為 this 的 BindAsync / MapAsync 多載，
+  讓「同步起點 → 非同步步驟」的管線不需再包一層 Task.FromResult。
+  短路路徑刻意不宣告為 async，回傳同步完成的 ValueTask，零配置。
+
+效能與內部改善
+- 所有 throw helper 加上 MethodImplOptions.NoInlining，避免冷路徑 IL 被內聯進
+  AggressiveInlining 的熱路徑方法而撐大體積、影響 JIT 內聯決策。
+- Result.SelectMany 與全部非同步擴充改用單次 TryGetOk/TryGetValue，
+  消除同一個值被重複驗證與分支多達三次的情況。
+- Option.Zip / ZipWith 消除對第二個運算元的重複狀態檢查。
+
+其他
+- Unit 補上非泛型 IComparable，與 Option / Result 保持一致。
+- 例外訊息改用 typeof(...) 呈現完整泛型型別名稱（原本只顯示 "Option" / "Result"）。
+- 建置設定鎖定 LangVersion 12.0（net8.0 與 net10.0 的語言版本交集），
+  確保新語法在兩個目標框架上都會被即時驗證。
+    </PackageReleaseNotes>
 
     <!-- Build -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

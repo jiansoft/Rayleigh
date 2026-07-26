@@ -242,15 +242,10 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
         IsSome = true;
     }
 
-    /// <summary>
-    /// 建立一個空的 <see cref="Option{T}"/>（無值）。
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Option()
-    {
-        _value = default;
-        IsSome = false;
-    }
+    // 註：此處刻意不定義顯式的無參數建構子。
+    // C# 10 起雖允許 struct 宣告無參數建構子，但它不會被 default(Option<T>)、陣列配置或
+    // Activator.CreateInstance<T>() 呼叫，因此「零值即 None」這個不變條件本來就必須由欄位預設值保證。
+    // 保留一個與零值初始化行為完全相同的建構子只會製造「它有被呼叫」的誤解，故予以移除。
 
     #region Factory Methods
 
@@ -475,7 +470,10 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
     /// </example>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Option<(T, TU)> Zip<TU>(in Option<TU> other) where TU : notnull
-        => IsSome && other.IsSome ? Option<(T, TU)>.Some((_value, other.Unwrap())) : Option<(T, TU)>.None;
+        // 使用 TryGetValue 而非「other.IsSome 判斷 + other.Unwrap()」，後者會對 other 重複檢查狀態兩次。
+        => IsSome && other.TryGetValue(out var otherValue)
+            ? Option<(T, TU)>.Some((_value, otherValue))
+            : Option<(T, TU)>.None;
 
     /// <summary>
     /// 將兩個 <see cref="Option{T}"/> 組合，並使用指定的函數進行轉換。
@@ -504,7 +502,10 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
     public Option<TResult> ZipWith<TU, TResult>(in Option<TU> other, Func<T, TU, TResult> zipper)
         where TU : notnull
         where TResult : notnull
-        => IsSome && other.IsSome ? Option<TResult>.Some(zipper(_value, other.Unwrap())) : Option<TResult>.None;
+        // 使用 TryGetValue 而非「other.IsSome 判斷 + other.Unwrap()」，後者會對 other 重複檢查狀態兩次。
+        => IsSome && other.TryGetValue(out var otherValue)
+            ? Option<TResult>.Some(zipper(_value, otherValue))
+            : Option<TResult>.None;
 
     #endregion
 
@@ -666,7 +667,14 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
     /// </param>
     /// <returns>本方法一律拋出例外，不會實際回傳；回傳型別 <typeparamref name="T"/> 僅用於讓呼叫端能以運算式形式使用（<c>IsSome ? _value : ThrowNoneException()</c>）。</returns>
     /// <exception cref="InvalidOperationException">一律擲出。</exception>
+    /// <remarks>
+    /// 標記為 <see cref="MethodImplOptions.NoInlining"/>：<see cref="Unwrap"/> 與 <see cref="Expect(string)"/>
+    /// 皆為 <see cref="MethodImplOptions.AggressiveInlining"/> 的熱路徑方法，若讓「建立例外物件」這段冷路徑 IL
+    /// 被內聯進每一個呼叫點，會撐大方法體積並反過來使外層方法超過 JIT 的內聯門檻。
+    /// 這與 .NET runtime 自身 <c>ThrowHelper</c> 的做法一致。
+    /// </remarks>
     [DoesNotReturn]
+    [MethodImpl(MethodImplOptions.NoInlining)]
     private static T ThrowNoneException(string? message = null)
         => throw new InvalidOperationException(message ?? "Option is None");
 
@@ -946,7 +954,9 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
         {
             null => 1,
             Option<T> other => CompareTo(other),
-            _ => throw new ArgumentException($"Object must be of type {nameof(Option)}")
+            // 使用 typeof(...) 而非 nameof(...)：後者只會產生 "Option"，遺漏泛型參數，
+            // 對呼叫端判斷「應該傳入哪個具體型別」毫無幫助。
+            _ => throw new ArgumentException($"Object must be of type {typeof(Option<T>)}", nameof(obj))
         };
     }
 

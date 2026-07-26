@@ -277,6 +277,110 @@ Each step only runs if the previous one succeeded. Errors propagate automaticall
 > The token is only checked (and forwarded) when the delegate is actually about to run — a short-circuited
 > `Err`/`None` branch never observes cancellation, matching the no-op semantics of the rest of the library.
 
+### Working with Collections
+
+#### Entering the Option world — safely
+
+The BCL's `FirstOrDefault` and `GetValueOrDefault` cannot distinguish *"not found"* from
+*"found a value that happens to equal the default"*. For value types this silently loses information:
+
+```csharp
+var scores = new[] { 0, 5, 10 };
+
+scores.FirstOrDefault();          // 0  ─┬─ indistinguishable
+Array.Empty<int>().FirstOrDefault(); // 0  ─┘
+
+scores.FirstOrNone();             // Some(0)
+Array.Empty<int>().FirstOrNone(); // None
+```
+
+The same applies to dictionaries:
+
+```csharp
+var counts = new Dictionary<string, int> { ["a"] = 0 };
+
+counts.GetValueOrDefault("a");     // 0  ─┬─ indistinguishable
+counts.GetValueOrDefault("miss");  // 0  ─┘
+
+counts.GetValueOrNone("a");        // Some(0)
+counts.GetValueOrNone("miss");     // None
+```
+
+Full set of entry points:
+
+```csharp
+source.FirstOrNone();               // Option<T>
+source.FirstOrNone(x => x > 10);    // Option<T>, short-circuits on first match
+source.SingleOrNone();              // None if empty OR more than one (never throws)
+source.ElementAtOrNone(3);          // None if out of range (negative index included)
+dictionary.GetValueOrNone(key);     // Option<TValue>
+```
+
+#### `Sequence()` — all-or-nothing
+
+Turns a collection of `Option`/`Result` inside out. Short-circuits on the first `None`/`Err`:
+
+```csharp
+Option<int>[] all  = [Option<int>.Some(1), Option<int>.Some(2)];
+Option<int>[] some = [Option<int>.Some(1), Option<int>.None];
+
+all.Sequence();   // Some([1, 2])
+some.Sequence();  // None
+
+// With Result: returns the FIRST error encountered, and stops enumerating there
+var validated = inputs.Select(Validate).Sequence();   // Result<List<Valid>, Error>
+```
+
+#### `Partition()` — collect every error
+
+Where `Sequence()` short-circuits, `Partition()` walks the entire sequence and gathers everything.
+This is what you want for form validation, where the user should see all problems at once:
+
+```csharp
+var (users, errors) = dtos.Select(Validate).Partition();
+
+if (errors.Count > 0)
+{
+    return BadRequest(errors);   // report ALL validation failures, not just the first
+}
+
+return Ok(users);
+```
+
+#### `Values()` — keep the `Some`s, drop the `None`s
+
+```csharp
+Option<int>[] options = [Option<int>.Some(1), Option<int>.None, Option<int>.Some(3)];
+options.Values();   // [1, 3]
+```
+
+> **`Values()` vs `Sequence()`**
+> `Values()` ignores `None` and keeps what it can. `Sequence()` treats any `None` as total failure.
+
+### Starting an Async Pipeline from a Sync Value
+
+The `Task`/`ValueTask` async overloads cover the case where the pipeline *already* is async. When the
+**start** of the chain is a synchronously obtained `Result`/`Option`, use the overloads that take the
+value itself:
+
+```csharp
+// Before — an extra Task allocation just to satisfy the type
+await Task.FromResult(Validate(input)).BindAsync(v => SaveAsync(v));
+
+// After
+await Validate(input).BindAsync(v => SaveAsync(v));
+```
+
+These overloads are deliberately **not** declared `async`. On the short-circuit path (`Err`/`None`) they
+return an already-completed `ValueTask` — no state machine, no allocation:
+
+```csharp
+var pending = Result<int, string>.Err("boom")
+    .BindAsync(x => new ValueTask<Result<int, string>>(Result<int, string>.Ok(x)));
+
+pending.IsCompletedSuccessfully;   // true — never touched the thread pool
+```
+
 ### Unit Type
 
 Use `Unit` as a success type in `Result` when there is no meaningful return value:
@@ -314,6 +418,23 @@ var maybeError = result.Err();
 - **Pattern matching** — `Deconstruct` enables `switch` expressions and `is` patterns.
 - **Async support** — `Task<T>` and `ValueTask<T>` extension methods for `BindAsync`, `MapAsync`, `OrElseAsync`, `TapAsync`, and more.
 - **Implicit conversions** — `Result<T, E>` can be created directly from `T`, `E`, `Ok<T>`, or `Err<E>` for concise method returns.
+- **Poisoned default state** — `default(Result<T, E>)` is *not* a valid result. Because C# lets any struct be
+  zero-initialized (array slots, unassigned fields), `Result` tracks a distinct uninitialized state and throws
+  `InvalidOperationException` on any member that would read a value. This holds for **every** `E`, including
+  `enum` and `struct` error types where the default value is an ordinary member.
+- **AOT & trimming ready** — `IsAotCompatible` and `IsTrimmable`; no reflection, no dynamic code generation.
+
+> **Known limitation — `T` and `E` must differ**
+> `Result<T, E>` declares implicit conversions from both `T` and `E`. When they resolve to the same type
+> (e.g. `Result<string, string>`), those two operators collide and implicit conversion fails to compile with
+> `CS0457`. Use the explicit factories or the wrapper records instead:
+>
+> ```csharp
+> Result<string, string> r = ok ? new Ok<string>("value") : new Err<string>("error");
+> ```
+>
+> Better still, give errors a dedicated type (`enum`, `record`, or `readonly record struct`) — it sidesteps the
+> limitation and gives failures real meaning in the type system.
 
 ## API Reference
 
@@ -383,8 +504,16 @@ var maybeError = result.Err();
 | `OptionExtensions` | `OrNull()` | Convert `Option<T>` to `T?` (supports both struct and class types) |
 | `NullableExtensions` | `ToOption()` | Convert `T?` (reference or value type) to `Option<T>` |
 | `EnumerableExtensions` | `Values()` | Filter `IEnumerable<Option<T>>` to extract all `Some` values |
+| `EnumerableExtensions` | `FirstOrNone()` / `FirstOrNone(predicate)` | First element as `Option<T>`; `None` if empty or no match |
+| `EnumerableExtensions` | `SingleOrNone()` | The single element as `Option<T>`; `None` if empty **or** more than one |
+| `EnumerableExtensions` | `ElementAtOrNone(index)` | Element at index as `Option<T>`; `None` if out of range |
+| `EnumerableExtensions` | `GetValueOrNone(key)` | Dictionary lookup as `Option<TValue>`; `None` if the key is absent |
+| `EnumerableExtensions` | `Sequence()` | `IEnumerable<Option<T>>` → `Option<List<T>>`, `IEnumerable<Result<T,E>>` → `Result<List<T>,E>` (short-circuits) |
+| `EnumerableExtensions` | `Partition()` | `IEnumerable<Result<T,E>>` → `(List<T> Values, List<E> Errors)` (collects **all** errors) |
 | `OptionAsyncExtensions` | `BindAsync` / `MapAsync` / `OrElseAsync` | Async Option chaining (`Task` & `ValueTask`) |
+| `OptionAsyncExtensions` | `BindAsync` / `MapAsync` on `Option<T>` | Start an async pipeline from a **synchronous** `Option<T>` — no `Task.FromResult` wrapper needed |
 | `ResultAsyncExtensions` | `BindAsync` / `MapAsync` / `MapErrAsync` / `OrElseAsync` / `TapAsync` / `TapErrAsync` | Async Result chaining (`Task` & `ValueTask`) |
+| `ResultAsyncExtensions` | `BindAsync` / `MapAsync` on `Result<T,E>` | Start an async pipeline from a **synchronous** `Result<T,E>` — short-circuits with zero allocation |
 
 ## Security Considerations
 
@@ -418,12 +547,44 @@ Rayleigh/
 ├── tests/
 │   └── jIAnSoft.Rayleigh.Tests/ # Unit tests (xUnit)
 ├── examples/
-│   └── jIAnSoft.Rayleigh.Examples/ # Runnable examples
+│   └── jIAnSoft.Rayleigh.Examples/ # Runnable tutorial (E01–E12, heavily commented)
 ├── benchmarks/
 │   └── jIAnSoft.Rayleigh.Benchmarks/ # BenchmarkDotNet allocation/throughput benchmarks
+├── CHANGELOG.md                      # Release notes
 ├── LICENSE
 └── README.md
 ```
+
+## Learn by Running
+
+The `examples/` project is a runnable tutorial, not a code dump. Each of the twelve modules explains
+**why** an API exists before showing how to use it, then prints every expression next to its actual result:
+
+```bash
+# Walk through all twelve modules
+dotnet run --project examples/jIAnSoft.Rayleigh.Examples
+
+# Or jump to one — e.g. module 8, collection operations
+dotnet run --project examples/jIAnSoft.Rayleigh.Examples -- 8
+```
+
+| # | Module | Covers |
+|---|---|---|
+| E01 | Option basics | What `Option` is, four ways to create one, `IsSome` / `Contains` |
+| E02 | Option transformations | `Map` / `Filter` / `Bind` / `Flatten` — and how to pick between them |
+| E03 | Getting values out | `Match`, `TryGetValue`, the `Unwrap` family, `Or`, `Tap`, `Zip` |
+| E04 | Result basics | Carrying a failure reason; choosing an error type; the poisoned `default` |
+| E05 | Result transformations | `Map` / `MapErr` / `Bind` and railway-oriented programming |
+| E06 | Result extraction | `Match`, `TryGetOk`, fallbacks, logging, the `Unit` type |
+| E07 | Option ↔ Result | Which one to reach for, and how to convert between them |
+| E08 | Collections | `FirstOrNone`, `GetValueOrNone`, `Sequence`, `Partition`, `Values` |
+| E09 | Async pipelines | `BindAsync` / `MapAsync`, zero-allocation short-circuit, cancellation |
+| E10 | LINQ query syntax | `from` / `where` / `select` over `Option` and `Result` |
+| E11 | Real-world scenarios | Config, form validation, sign-up, batch import, layered cache |
+| E12 | Common pitfalls | Ten mistakes worth seeing once, each with the fix |
+
+> Modules are written for someone meeting `Option` / `Result` for the first time. If you already know
+> the concepts, E08 and E12 are the ones with material you likely haven't seen.
 
 ## Build
 
@@ -446,6 +607,38 @@ against regressions. Run it in Release mode (BenchmarkDotNet refuses to run unde
 ```bash
 dotnet run -c Release --project benchmarks/jIAnSoft.Rayleigh.Benchmarks
 ```
+
+Run a single suite, or a quick pass with fewer iterations:
+
+```bash
+# One suite
+dotnet run -c Release --project benchmarks/jIAnSoft.Rayleigh.Benchmarks -- --filter '*EnumerableBenchmarks*'
+
+# Quick pass (lower precision, much faster)
+dotnet run -c Release --project benchmarks/jIAnSoft.Rayleigh.Benchmarks -- --filter '*' --job short
+```
+
+| Suite | What it establishes |
+|---|---|
+| `OptionBenchmarks` | `Option<T>` allocates nothing on its own; the contrast group shows closure cost is the *caller's*, not the library's |
+| `ResultBenchmarks` | Same for `Result<T,E>`; the uninitialized-state guard costs nothing on the success path |
+| `EnumerableBenchmarks` | The collection combinators' stronger semantics don't cost throughput vs. their LINQ counterparts |
+| `AsyncPipelineBenchmarks` | Sync-source overloads short-circuit with **0 B** allocated, vs. the `Task.FromResult` wrapper they replace |
+| `ThrowPathBenchmarks` | Quantifies why `Result` beats exception-driven control flow on the error path |
+
+Representative numbers (BenchmarkDotNet 0.15.8, AMD Ryzen 9 5950X, .NET 10.0.9):
+
+| | Mean | Allocated |
+|---|---:|---:|
+| `Result.Ok(v)` | 0.13 ns | 0 B |
+| `result.UnwrapOr(-1)` on `Err` | 0.16 ns | 0 B |
+| `try { result.Unwrap(); } catch { }` — same error, via exception | 2,100 ns | 384 B |
+| `err.BindAsync(...)` — sync-source, short-circuit | 13.9 ns | **0 B** |
+| `Task.FromResult(err).BindAsync(...)` — the wrapper it replaces | 38.4 ns | 240 B |
+
+> **On precision:** these come from a `--job short` run (3 iterations), so the `Mean` column has wide
+> error bars and is directional only. The `Allocated` column is measured deterministically via GC
+> counters and is exact. Re-run without `--job short` for citable timings.
 
 ## License
 

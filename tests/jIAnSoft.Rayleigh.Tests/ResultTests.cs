@@ -1661,15 +1661,33 @@ public class ResultTests
     }
 
     /// <summary>
-    /// 驗證未初始化的 Result 呼叫 ToString 不會拋出例外，而是回傳 "Err()"。
+    /// 驗證未初始化的 Result 呼叫 ToString 不會拋出例外，而是回傳 "Uninitialized"。
     /// 與 GetHashCode 相同，這是刻意不套用「未初始化即中毒」規則的成員。
     /// </summary>
+    /// <remarks>
+    /// 先前版本回傳 "Err()"。改為明確的 "Uninitialized" 是因為當 TE 為值型別時，
+    /// 舊輸出會呈現為具誤導性的 "Err(0)"／"Err(None)"，讓未初始化的 struct 在偵錯工具中
+    /// 看起來像一個合法的失敗結果——這正是 ResultState 三態設計要消除的混淆。
+    /// </remarks>
     [Fact]
-    public void EdgeCase_DefaultResult_ToStringReturnsErrWithEmptyParens()
+    public void EdgeCase_DefaultResult_ToStringReturnsUninitialized()
     {
         var result = default(Result<int, string>);
 
-        Assert.Equal("Err()", result.ToString());
+        Assert.Equal("Uninitialized", result.ToString());
+    }
+
+    /// <summary>
+    /// 驗證錯誤型別為值型別（enum）時，未初始化的 Result 同樣回傳 "Uninitialized"，
+    /// 而不是看起來合法的 "Err(None)"。
+    /// </summary>
+    [Fact]
+    public void EdgeCase_DefaultResultWithEnumError_ToStringReturnsUninitialized()
+    {
+        var result = default(Result<int, TestError>);
+
+        Assert.Equal("Uninitialized", result.ToString());
+        Assert.Equal("Err(NotFound)", Result<int, TestError>.Err(TestError.NotFound).ToString());
     }
 
     /// <summary>
@@ -1798,13 +1816,158 @@ public class ResultTests
     }
 
     // ================================================================
+    // Uninitialized with VALUE-TYPE error (回歸測試)
+    // ================================================================
+    //
+    // 背景：先前版本以 `!IsOk && _error is null` 判斷未初始化狀態。由於 `where TE : notnull`
+    // 不等同 `where TE : struct`，`TE?` 僅是可為 null 的標註而非 Nullable<TE>，因此當 TE 為 enum
+    // 或 struct 時 `_error is null` 會被 JIT 常數摺疊為 false，整套防護在該泛型具現化中靜默失效。
+    //
+    // 影響尤其嚴重的原因是 enum 的預設值通常是有意義的成員（此處 TestError.NotFound = 0），
+    // 使得 default(Result<T, TestError>) 會偽裝成一個合法的 Err(NotFound)，讓呼叫端拿到
+    // 看似正常的業務錯誤而無從追查來源。
+    //
+    // 舊有的 UninitializedThrowingOperations 全部使用 Result<int, string>（參考型別 TE），
+    // 完全沒有涵蓋這條路徑。以下測試補上該缺口。
+
+    /// <summary>
+    /// 列舉所有「未初始化 Result 應拋出 InvalidOperationException」的操作，
+    /// 以<b>值型別</b>錯誤（enum）具現化，與 <see cref="UninitializedThrowingOperations"/> 的參考型別版本對應。
+    /// </summary>
+    public static IEnumerable<object[]> UninitializedThrowingOperationsWithEnumError()
+    {
+        yield return ["Contains", (Action<Result<int, TestError>>)(r => r.Contains(0))];
+        yield return ["ContainsErr", (Action<Result<int, TestError>>)(r => r.ContainsErr(TestError.NotFound))];
+        yield return ["IsOkAnd", (Action<Result<int, TestError>>)(r => r.IsOkAnd(_ => true))];
+        yield return ["IsErrAnd", (Action<Result<int, TestError>>)(r => r.IsErrAnd(_ => true))];
+        yield return ["Match(TResult)", (Action<Result<int, TestError>>)(r => r.Match(v => v, _ => 0))];
+        yield return ["Match(Action)", (Action<Result<int, TestError>>)(r => r.Match(_ => { }, _ => { }))];
+        yield return ["Map", (Action<Result<int, TestError>>)(r => r.Map(x => x))];
+        yield return ["MapErr", (Action<Result<int, TestError>>)(r => r.MapErr(e => e))];
+        yield return ["Bind", (Action<Result<int, TestError>>)(r => r.Bind(Result<int, TestError>.Ok))];
+        yield return ["Or", (Action<Result<int, TestError>>)(r => r.Or(Result<int, TestError>.Ok(1)))];
+        yield return ["OrElse", (Action<Result<int, TestError>>)(r => r.OrElse(_ => Result<int, TestError>.Ok(1)))];
+        yield return ["Tap", (Action<Result<int, TestError>>)(r => r.Tap(_ => { }))];
+        yield return ["TapErr", (Action<Result<int, TestError>>)(r => r.TapErr(_ => { }))];
+        yield return ["TryGetOk(1 out)", (Action<Result<int, TestError>>)(r => r.TryGetOk(out _))];
+        yield return ["TryGetOk(2 out)", (Action<Result<int, TestError>>)(r => r.TryGetOk(out _, out _))];
+        yield return ["TryGetErr", (Action<Result<int, TestError>>)(r => r.TryGetErr(out _))];
+        yield return ["Unwrap", (Action<Result<int, TestError>>)(r => r.Unwrap())];
+        yield return ["UnwrapOr", (Action<Result<int, TestError>>)(r => r.UnwrapOr(0))];
+        yield return ["UnwrapOrElse", (Action<Result<int, TestError>>)(r => r.UnwrapOrElse(_ => 0))];
+        yield return ["Expect", (Action<Result<int, TestError>>)(r => r.Expect("msg"))];
+        yield return ["UnwrapErr", (Action<Result<int, TestError>>)(r => r.UnwrapErr())];
+        yield return ["ExpectErr", (Action<Result<int, TestError>>)(r => r.ExpectErr("msg"))];
+        yield return ["ToOption", (Action<Result<int, TestError>>)(r => r.ToOption())];
+        yield return ["Err", (Action<Result<int, TestError>>)(r => r.Err())];
+        yield return ["MapOr", (Action<Result<int, TestError>>)(r => r.MapOr("default", v => $"{v}"))];
+        yield return ["MapOrElse", (Action<Result<int, TestError>>)(r => r.MapOrElse(_ => "fallback", v => $"{v}"))];
+        yield return ["Select", (Action<Result<int, TestError>>)(r => r.Select(x => x))];
+        yield return
+        [
+            "SelectMany",
+            (Action<Result<int, TestError>>)(r => r.SelectMany(Result<int, TestError>.Ok, (a, b) => a + b))
+        ];
+        yield return ["CompareTo", (Action<Result<int, TestError>>)(r => r.CompareTo(Result<int, TestError>.Ok(1)))];
+    }
+
+    /// <summary>
+    /// 驗證當錯誤型別為<b>值型別</b>時，未初始化偵測仍然生效——這是先前版本失效的路徑。
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(UninitializedThrowingOperationsWithEnumError))]
+    public void Operation_OnUninitializedResultWithEnumError_ThrowsInvalidOperationException(
+        string operationName, Action<Result<int, TestError>> operation)
+    {
+        Assert.False(string.IsNullOrWhiteSpace(operationName));
+
+        var result = default(Result<int, TestError>);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => operation(result));
+        Assert.Contains("uninitialized", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// 驗證未初始化的 Result 不等於「錯誤值恰好是 default(TE) 的合法 Err」。
+    /// 這兩者在先前版本中完全無法區分。
+    /// </summary>
+    [Fact]
+    public void Uninitialized_WithEnumError_IsNotEqualToErrOfDefaultEnumValue()
+    {
+        var uninitialized = default(Result<int, TestError>);
+        var legitimateErr = Result<int, TestError>.Err(TestError.NotFound); // NotFound == 0 == default(TestError)
+
+        Assert.NotEqual(uninitialized, legitimateErr);
+        Assert.False(uninitialized == legitimateErr);
+        Assert.True(uninitialized != legitimateErr);
+    }
+
+    /// <summary>
+    /// 驗證兩個未初始化的 Result（值型別錯誤）仍彼此相等，且 GetHashCode 一致——
+    /// 修正後的三態比較不應破壞雜湊容器的不變性。
+    /// </summary>
+    [Fact]
+    public void Uninitialized_WithEnumError_TwoDefaultsAreEqual()
+    {
+        var r1 = default(Result<int, TestError>);
+        var r2 = default(Result<int, TestError>);
+
+        Assert.True(r1 == r2);
+        Assert.True(r1.Equals(r2));
+        Assert.Equal(r1.GetHashCode(), r2.GetHashCode());
+    }
+
+    /// <summary>
+    /// 驗證錯誤值等於 default(TE) 的合法 Err 完全正常運作，不會被誤判為未初始化。
+    /// </summary>
+    [Fact]
+    public void Err_WithDefaultEnumValue_BehavesAsNormalErr()
+    {
+        var result = Result<int, TestError>.Err(TestError.NotFound);
+
+        Assert.True(result.IsErr);
+        Assert.False(result.IsOk);
+        Assert.Equal(TestError.NotFound, result.UnwrapErr());
+        Assert.True(result.ContainsErr(TestError.NotFound));
+        Assert.Equal(-1, result.MapOr(-1, v => v));
+        Assert.Equal(Option<TestError>.Some(TestError.NotFound), result.Err());
+    }
+
+    /// <summary>
+    /// 驗證錯誤型別為自訂 struct 時，未初始化偵測同樣生效（不限於 enum）。
+    /// </summary>
+    [Fact]
+    public void Uninitialized_WithStructError_ThrowsOnValueAccess()
+    {
+        var uninitialized = default(Result<int, TestErrorStruct>);
+
+        Assert.Throws<InvalidOperationException>(() => uninitialized.Unwrap());
+        Assert.Throws<InvalidOperationException>(() => uninitialized.UnwrapErr());
+        Assert.NotEqual(uninitialized, Result<int, TestErrorStruct>.Err(default));
+    }
+
+    // ================================================================
     // Helper types for tests
     // ================================================================
 
-    private enum TestError
+    /// <summary>
+    /// 測試用的列舉錯誤型別。
+    /// </summary>
+    /// <remarks>
+    /// 必須為 <c>public</c> 而非 <c>private</c>：它出現在 <c>[Theory]</c> 測試方法的參數型別中，
+    /// 而 xUnit 要求測試方法為 <c>public</c>，參數型別的可存取性不得低於方法本身（CS0051）。
+    /// 刻意讓第一個成員 <see cref="NotFound"/> 的基礎值為 0，以覆蓋「default(TE) 是有意義的列舉成員」這個關鍵情境。
+    /// </remarks>
+    public enum TestError
     {
         NotFound,
         Unauthorized,
         Timeout
     }
+
+    /// <summary>
+    /// 值型別的錯誤，用於驗證未初始化偵測不只對 enum 生效。
+    /// 刻意讓 <c>default</c> 是一個看似合法的值。
+    /// </summary>
+    public readonly record struct TestErrorStruct(int Code, string? Reason);
 }
