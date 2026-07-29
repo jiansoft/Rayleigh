@@ -27,7 +27,7 @@ jobs:
             10.0.x
 
       - name: 'Qodana Scan'
-        uses: JetBrains/qodana-action@v2026.1
+        uses: JetBrains/qodana-action@v2026.2
         with:
           upload-result: false
           args: |
