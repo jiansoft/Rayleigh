@@ -246,7 +246,8 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     /// <remarks>
     /// 定義為「非 Ok」而非「等於 <see cref="ResultState.Err"/>」，因此未初始化的 Result 其
     /// <see cref="IsErr"/> 仍為 <c>true</c>，維持與先前版本一致的語意。
-    /// 若需要主動偵測未初始化狀態，請呼叫任一會存取內部值的成員（它們都會拋出 <see cref="InvalidOperationException"/>）。
+    /// 但要注意此時 <see cref="UnwrapErr"/>／<see cref="TryGetErr"/> 會拋出 <see cref="InvalidOperationException"/>——
+    /// 若需要主動且安全地偵測未初始化狀態，請改用 <see cref="IsUninitialized"/>。
     /// </remarks>
     [MemberNotNullWhen(true, nameof(_error))]
     [MemberNotNullWhen(false, nameof(_value))]
@@ -254,6 +255,40 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => _state != ResultState.Ok;
+    }
+
+    /// <summary>
+    /// 取得一個值，指出此 <see cref="Result{T,TE}"/> 是否處於「未初始化」狀態——
+    /// 即由 <c>default(Result&lt;T,TE&gt;)</c>、陣列配置或未指派的欄位產生，從未經過
+    /// <see cref="Ok(T)"/> 或 <see cref="Err(TE)"/> 建構。
+    /// </summary>
+    /// <value>若從未經由工廠方法建構則為 <c>true</c>；否則為 <c>false</c>。</value>
+    /// <remarks>
+    /// <para>
+    /// 這是唯一能<b>安全</b>偵測未初始化狀態的成員：<see cref="IsErr"/> 對未初始化同樣回傳 <c>true</c>
+    /// （為維持與舊版一致的語意），但緊接著呼叫 <see cref="UnwrapErr"/> 或 <see cref="TryGetErr"/>
+    /// 會拋出 <see cref="InvalidOperationException"/>。若你的程式碼可能接收到未初始化的 Result
+    /// （例如來自 <c>new Result&lt;T,TE&gt;[n]</c> 或反序列化），請先以本屬性判斷。
+    /// </para>
+    /// <code>
+    /// if (result.IsUninitialized)
+    /// {
+    ///     // 呼叫端的 bug：這個 Result 從未被賦值
+    /// }
+    /// else if (result.TryGetErr(out var error))
+    /// {
+    ///     // 真正的業務錯誤
+    /// }
+    /// </code>
+    /// <para>
+    /// 本屬性與 <see cref="Equals(Result{T,TE})"/>、<see cref="GetHashCode"/>、<see cref="ToString"/>
+    /// 同屬「不會對未初始化狀態拋出例外」的成員。
+    /// </para>
+    /// </remarks>
+    public bool IsUninitialized
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _state == ResultState.Uninitialized;
     }
 
     #region Contains / Conditional Checks
@@ -408,9 +443,9 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     /// <exception cref="InvalidOperationException">當偵測到未初始化狀態時擲出。</exception>
     /// <remarks>
     /// <para>
-    /// 幾乎每個會讀取 <c>_value</c>／<c>_error</c> 的公開成員都會在開頭呼叫本方法作為防護。
-    /// 例外是 <see cref="Equals(Result{T,TE})"/>、<see cref="GetHashCode"/>、<see cref="ToString"/> 與
-    /// <see cref="Deconstruct"/>——這幾個成員刻意不呼叫本方法，詳見 <see cref="Equals(Result{T,TE})"/> 的備註。
+    /// 每個會讀取 <c>_value</c>／<c>_error</c> 的公開成員都會在開頭呼叫本方法作為防護，<see cref="Deconstruct"/> 亦然。
+    /// 唯一的例外是 <see cref="Equals(Result{T,TE})"/>、<see cref="GetHashCode"/>、<see cref="ToString"/> 與
+    /// <see cref="IsUninitialized"/>——這幾個成員刻意不呼叫本方法，詳見 <see cref="Equals(Result{T,TE})"/> 的備註。
     /// </para>
     /// <para>
     /// 判斷式直接比對 <see cref="_state"/>，因此對參考型別與值型別的 <typeparamref name="TE"/> 一致生效。
@@ -636,9 +671,20 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     /// </summary>
     /// <param name="other">替代的 Result。</param>
     /// <returns>若成功則回傳自身；若失敗則回傳 <paramref name="other"/>。</returns>
+    /// <exception cref="InvalidOperationException">
+    /// 當<b>自身或</b> <paramref name="other"/> 處於未初始化狀態時擲出。
+    /// </exception>
     /// <remarks>
     /// <para><b>適用情境</b></para>
     /// <para>當你有備用的資料來源（如快取失敗則查資料庫），且備用來源的代價較低（因為 <paramref name="other"/> 會被立即求值）時使用。</para>
+    /// <para><b>為什麼連 <paramref name="other"/> 也要驗證</b></para>
+    /// <para>
+    /// 與 <see cref="CompareTo(Result{T,TE})"/> 一致，兩個運算元都必須是已初始化的 Result。
+    /// 若只驗證自身，<c>Err(x).Or(default)</c> 會讓一個未初始化的 Result 從組合子「流出」，
+    /// 在遠離錯誤來源的後續呼叫點才爆炸——那正是三態設計要消滅的除錯困境。
+    /// 驗證是無條件的（即使自身為 Ok、<paramref name="other"/> 用不到），因為傳入未初始化的
+    /// Result 本身就是呼叫端的 bug，愈早失敗愈好；<paramref name="other"/> 反正也是立即求值的。
+    /// </para>
     /// </remarks>
     /// <example>
     /// <code>
@@ -650,6 +696,7 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     public Result<T, TE> Or(in Result<T, TE> other)
     {
         ThrowIfUninitialized();
+        other.ThrowIfUninitialized();
         return IsOk ? this : other;
     }
 
@@ -1167,9 +1214,24 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     /// <summary>
     /// 將 <see cref="Result{T, TE}"/> 解構為元組 <c>(bool isOk, T? value, TE? error)</c>。
     /// </summary>
+    /// <exception cref="InvalidOperationException">當此 Result 處於未初始化狀態時擲出。</exception>
     /// <remarks>
     /// <para><b>適用情境</b></para>
     /// <para>支援 C# 的解構語法與 Pattern Matching，特別適合在 switch 表達式中使用。</para>
+    /// <para><b>為什麼本方法會對未初始化狀態拋出例外</b></para>
+    /// <para>
+    /// 解構是<b>讀取內部值</b>的操作，因此與 <see cref="Match{TResult}"/>、<see cref="Map{TU}"/> 同樣中毒化未初始化狀態，
+    /// 而不歸屬於 <see cref="Equals(Result{T,TE})"/>／<see cref="GetHashCode"/>／<see cref="ToString"/> 那組
+    /// 「依 .NET 慣例不得拋出」的成員。
+    /// </para>
+    /// <para>
+    /// 若不拋出，下方 <c>(false, _, var e)</c> 這條在文件中被推薦的分支，會在 <typeparamref name="TE"/> 為 enum 時
+    /// 拿到 <c>default(TE)</c>——通常是一個有意義的列舉成員——使呼叫端得到一個看似合法、實則憑空捏造的業務錯誤。
+    /// 這與 <see cref="ToString"/> 曾輸出誤導性的 <c>"Err(None)"</c> 是同一個問題。
+    /// </para>
+    /// <para>
+    /// 若需要在解構前安全地判斷，請使用 <see cref="IsUninitialized"/>。
+    /// </para>
     /// </remarks>
     /// <example>
     /// <code>
@@ -1182,6 +1244,8 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     /// </example>
     public void Deconstruct(out bool isOk, out T? value, out TE? error)
     {
+        ThrowIfUninitialized();
+
         if (IsOk)
         {
             isOk = true;

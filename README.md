@@ -472,6 +472,7 @@ var maybeError = result.Err();
 | `Ok(T)` / `Err(E)` | Construction |
 | Implicit from `T` / `E` / `Ok<T>` / `Err<E>` | Implicit conversions |
 | `IsOk` / `IsErr` | State check |
+| `IsUninitialized` | Detects `default(Result<T,E>)` — the only member that reports this state without throwing. See [Uninitialized results](#uninitialized-results) |
 | `Contains(T)` / `ContainsErr(E)` | Value / error equality check |
 | `IsOkAnd(predicate)` / `IsErrAnd(predicate)` | Conditional check |
 | `Match(ok, err)` | Pattern match |
@@ -489,6 +490,46 @@ var maybeError = result.Err();
 | `Equals` / `CompareTo` / comparison operators | Equality, ordering, and sorting support; `Err` sorts before `Ok` |
 | `ToString()` | Debug-friendly `Ok(value)` or `Err(error)` text |
 | `Flatten()` | Unwrap nested `Result<Result<T,E>,E>` (extension) |
+
+#### Uninitialized results
+
+`Result<T, E>` is a struct, so `default(Result<T, E>)` — an unassigned field, an element of
+`new Result<T, E>[n]`, or a deserialized value — is reachable without ever going through
+`Ok()` or `Err()`. Such a value carries neither a success value nor an error, so it is
+tracked as a distinct third state rather than being silently treated as an `Err`.
+
+Every member that reads the inner value or error throws `InvalidOperationException` on that
+state — including `Deconstruct`, so pattern matching cannot observe a fabricated error:
+
+```csharp
+public enum UserError { NotFound, Inactive }   // NotFound == 0
+
+var result = default(Result<User, UserError>);
+
+result.Unwrap();                       // throws InvalidOperationException
+var (isOk, user, error) = result;      // throws — without this, error would read as NotFound
+result.Or(Result<User, UserError>.Ok(u));  // throws (both operands must be initialized)
+```
+
+By .NET convention, `Equals`, `GetHashCode` and `ToString` never throw, so they remain usable
+in dictionaries and debugger windows. An uninitialized result equals only another
+uninitialized result — never an `Err` whose error happens to be `default(E)` — and renders as
+`"Uninitialized"`.
+
+`IsErr` returns `true` for an uninitialized result (preserving the original two-state
+semantics), which means it cannot distinguish the two. Use `IsUninitialized` when your code
+may legitimately receive one:
+
+```csharp
+if (result.IsUninitialized)
+{
+    // A bug at the call site: this Result was never assigned.
+}
+else if (result.TryGetErr(out var error))
+{
+    // A genuine business error.
+}
+```
 
 ### Supporting Types
 

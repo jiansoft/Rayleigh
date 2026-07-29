@@ -35,12 +35,23 @@ jobs:
     - name: Build (Release)
       run: dotnet build jIAnSoft.Rayleigh.slnx -c Release --no-restore
 
-    - name: Test
+    # 分開執行兩個目標框架，讓失敗時能立刻看出是哪一個 TFM 出問題，
+    # 而不必從混在一起的輸出中反推。涵蓋率只從其中一次收集即可（兩者測試內容相同）。
+    - name: Test (net8.0)
       run: |
-        dotnet test jIAnSoft.Rayleigh.slnx -c Release --no-build \
+        dotnet test jIAnSoft.Rayleigh.slnx -c Release --no-build -f net8.0 \
           --logger "trx" \
           --results-directory TestResults \
           --collect:"XPlat Code Coverage"
+
+    - name: Test (net10.0)
+      run: dotnet test jIAnSoft.Rayleigh.slnx -c Release --no-build -f net10.0 --logger "trx"
+
+    # 打包驗證提前到 PR 階段。這一步同時執行套件驗證（EnablePackageValidation），
+    # 會檢查 net8.0 與 net10.0 兩個目標框架的 public API 表面是否一致——
+    # 若不驗證，這類問題要到 release workflow 才會浮現，屆時 tag 已經推出去了。
+    - name: Pack (含套件驗證)
+      run: dotnet pack src/jIAnSoft.Rayleigh/jIAnSoft.Rayleigh.csproj -c Release --no-build
 
     - name: Generate Code Coverage Report
       uses: irongut/CodeCoverageSummary@v1.3.0
@@ -61,3 +72,50 @@ jobs:
       with:
         recreate: true
         path: code-coverage-results.md
+
+  # ==========================================================================
+  # Native AOT / trimming 驗證
+  #
+  # src 專案宣告了 <IsAotCompatible>true</IsAotCompatible>，但該屬性只會開啟分析器。
+  # 分析器抓得到明顯的反射與動態程式碼，卻無法證明整個泛型具現化圖在 Native AOT 下
+  # 真的能編譯並執行。唯有實際發佈原生執行檔並跑起來，這個宣告才算有憑據。
+  #
+  # 獨立成一個 job 的理由：AOT 編譯耗時且需要額外的原生工具鏈，
+  # 混進主 job 會拖慢所有 PR 的回饋速度。
+  # ==========================================================================
+  aot:
+    name: Native AOT (${{ matrix.tfm }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tfm: [ net8.0, net10.0 ]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # ILCompiler 產生原生目的碼後，需要系統的 linker 與 zlib 完成連結。
+      - name: Install native toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang zlib1g-dev
+
+      # TreatWarningsAsErrors 已在 Directory.Build.props 全域啟用，
+      # 因此任何 IL2xxx（trimming）或 IL3xxx（AOT）警告都會直接讓這一步失敗。
+      - name: Publish Native AOT
+        run: |
+          dotnet publish tests/jIAnSoft.Rayleigh.AotSmokeTest \
+            -c Release -f ${{ matrix.tfm }} -r linux-x64 \
+            -o ./aot-out
+
+      # 煙霧測試涵蓋值型別／參考型別／巢狀泛型／enum 錯誤型別／集合快速路徑／
+      # async 狀態機／例外路徑，任一檢查失敗即回傳非零離開碼。
+      - name: Run native executable
+        run: ./aot-out/jIAnSoft.Rayleigh.AotSmokeTest

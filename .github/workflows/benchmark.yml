@@ -1,0 +1,53 @@
+##
+## 效能量測流程（手動觸發）。
+##
+## 刻意「不」掛在 push / pull_request 上：
+## GitHub Actions 的共用執行器是虛擬化且與其他工作負載共存的環境，
+## 量測噪音足以淹沒本專案關心的差異（多數熱路徑在數十奈秒等級）。
+## 在這種環境自動比較數字並卡關，只會產生大量假警報，反而讓人習慣性忽略效能迴歸。
+##
+## 因此本流程的定位是「產生可下載的報告」，而非「守門」：
+## 開發者在改動熱路徑時手動觸發，取得 net8.0 與 net10.0 的完整結果後自行判讀，
+## 真正需要下結論的比較請在穩定的本機環境重跑。
+##
+## 判讀提醒：net10.0 相對 net8.0 的差距屬於 Runtime／JIT 自身的改善——
+## 同一份 IL 就會發生，不可誤記為程式碼修改的成果。
+##
+name: Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: 'BenchmarkDotNet 篩選字串（例如 *CollectionFastPath* ；預設全部）'
+        required: false
+        default: '*'
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # benchmarks 專案的 Program.cs 已設定同時在 net8.0 與 net10.0 兩個 Job 上執行，
+      # 因此這裡只需啟動一次；host TFM 選哪一個都會跑滿兩個 runtime。
+      - name: Run benchmarks (net8.0 + net10.0)
+        run: |
+          dotnet run --project benchmarks/jIAnSoft.Rayleigh.Benchmarks \
+            -c Release -f net10.0 \
+            -- --filter '${{ inputs.filter }}'
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-results
+          path: BenchmarkDotNet.Artifacts/results/*

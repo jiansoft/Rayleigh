@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace jIAnSoft.Rayleigh;
 
 /// <summary>
@@ -12,6 +14,32 @@ namespace jIAnSoft.Rayleigh;
 /// 呼叫端會在遠離錯誤來源的 <c>foreach</c> 現場才收到例外，且型別會是難以理解的
 /// <see cref="NullReferenceException"/> 而非 <see cref="ArgumentNullException"/>。
 /// 這也是 BCL 中 LINQ 運算子一致採用的結構。
+/// </para>
+/// <para><b>集合快速路徑</b></para>
+/// <para>
+/// <see cref="Sequence{T}(IEnumerable{Option{T}})"/>、<see cref="Sequence{T,TE}(IEnumerable{Result{T,TE}})"/>
+/// 與 <see cref="Partition{T,TE}"/> 會先對來源做型別測試，若為陣列或 <see cref="List{T}"/> 就改走
+/// <see cref="ReadOnlySpan{T}"/>，避開 enumerator 配置與介面派送，並以 <c>ref readonly</c> 走訪避免每輪複製 struct。
+/// </para>
+/// <para>
+/// 這是安全的，因為這些方法的走訪過程<b>不會回呼任何使用者程式碼</b>
+/// （只讀取 <see cref="Option{T}"/>／<see cref="Result{T,TE}"/> 的狀態欄位），
+/// 集合不可能在走訪期間被修改，因此不需要 <see cref="List{T}"/> enumerator 的版本檢查。
+/// 接受委派的方法（例如 <see cref="FirstOrNone{T}(IEnumerable{T}, Func{T, bool})"/>）不適用此結論，
+/// 因此刻意不加快速路徑，詳見該方法的備註。
+/// </para>
+/// <para><b>已量測的取捨</b></para>
+/// <para>
+/// 收益在 net8.0 上全面且顯著（1024 筆時耗時降低約 53%～68%）；在 net10.0 上仍有明顯效益
+/// （約 30%～49%），但幅度較小——因為 .NET 10 的 JIT 已能自行對陣列的列舉做去虛擬化與物件堆疊配置，
+/// 手寫快速路徑等於部分重複了 Runtime 已經做到的事。
+/// </para>
+/// <para>
+/// 代價是 net10.0 上<b>極小</b>的輸入（實測 8 筆陣列的 <c>Sequence&lt;Result&gt;</c>）會慢約 4 ns，
+/// 因為多付了一次型別測試，而該規模下 JIT 的自動最佳化本來就已接近最佳。
+/// 這個取捨是刻意接受的：4 ns 相對於該操作必然發生的 <see cref="List{T}"/> 配置（88 bytes）微不足道，
+/// 且交叉點很快就會越過；而 net8.0 在同樣的 8 筆輸入上反而快了約 50%——
+/// 需要被最佳化的正是較慢的那個 Runtime。
 /// </para>
 /// </remarks>
 public static class EnumerableExtensions
@@ -111,9 +139,15 @@ public static class EnumerableExtensions
         ArgumentNullException.ThrowIfNull(source);
 
         // 對 IList<T> 走索引存取，完全不建立 enumerator。
-        if (source is IList<T> list)
+        // 補上 IReadOnlyList<T>：兩者沒有繼承關係，只實作後者的型別（例如
+        // ReadOnlyCollection<T> 之外的自訂唯讀集合）不會被前者的型別測試命中。
+        switch (source)
         {
-            return list.Count > 0 ? Option<T>.Some(list[0]) : Option<T>.None;
+            case IList<T> list:
+                return list.Count > 0 ? Option<T>.Some(list[0]) : Option<T>.None;
+
+            case IReadOnlyList<T> readOnlyList:
+                return readOnlyList.Count > 0 ? Option<T>.Some(readOnlyList[0]) : Option<T>.None;
         }
 
         foreach (var item in source)
@@ -132,6 +166,32 @@ public static class EnumerableExtensions
     /// <param name="predicate">篩選條件。</param>
     /// <returns>第一個符合條件之元素的 <see cref="Option{T}"/>。</returns>
     /// <exception cref="ArgumentNullException">當 <paramref name="source"/> 或 <paramref name="predicate"/> 為 <c>null</c> 時擲出。</exception>
+    /// <remarks>
+    /// <para><b>為什麼這個多載沒有集合快速路徑</b></para>
+    /// <para>
+    /// 與無參數的 <see cref="FirstOrNone{T}(IEnumerable{T})"/> 不同，本多載刻意只走泛用列舉，原因有三：
+    /// </para>
+    /// <list type="number">
+    ///   <item><description>
+    ///   <b>收益微乎其微</b>：本方法會在第一個符合條件的元素短路，實測即使來源有 1024 個元素，
+    ///   整體耗時仍在個位數到十餘奈秒之間，enumerator 的成本佔比極低——與無參數版「完全不建立 enumerator」
+    ///   的情況不同，後者是常數時間操作，enumerator 反而是主要成本。
+    ///   </description></item>
+    ///   <item><description>
+    ///   <b>不能使用 span</b>：<paramref name="predicate"/> 是使用者程式碼，可以在走訪期間修改來源集合，
+    ///   持有 <see cref="ReadOnlySpan{T}"/> 會有記憶體安全疑慮。
+    ///   </description></item>
+    ///   <item><description>
+    ///   <b>索引迴圈無法在本專案穩定存在</b>：改寫成 <c>for (var i = 0; i &lt; list.Count; i++)</c> 後，
+    ///   <c>dotnet format</c>（CI 的必過關卡）會依樣式規則將其還原為 <c>foreach</c>，
+    ///   使該分支退化成與泛用路徑相同的介面列舉。留下一段實際上沒有加速效果的「快速路徑」，
+    ///   比沒有更糟——它會誤導後續維護者。
+    ///   </description></item>
+    /// </list>
+    /// <para>
+    /// <see cref="Sequence{T}(IEnumerable{Option{T}})"/> 等不接受委派的方法沒有這些限制，因此保留了 span 快速路徑。
+    /// </para>
+    /// </remarks>
     public static Option<T> FirstOrNone<T>(this IEnumerable<T> source, Func<T, bool> predicate) where T : notnull
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -164,9 +224,13 @@ public static class EnumerableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
 
-        if (source is IList<T> list)
+        switch (source)
         {
-            return list.Count == 1 ? Option<T>.Some(list[0]) : Option<T>.None;
+            case IList<T> list:
+                return list.Count == 1 ? Option<T>.Some(list[0]) : Option<T>.None;
+
+            case IReadOnlyList<T> readOnlyList:
+                return readOnlyList.Count == 1 ? Option<T>.Some(readOnlyList[0]) : Option<T>.None;
         }
 
         using var enumerator = source.GetEnumerator();
@@ -196,9 +260,13 @@ public static class EnumerableExtensions
             return Option<T>.None;
         }
 
-        if (source is IList<T> list)
+        switch (source)
         {
-            return index < list.Count ? Option<T>.Some(list[index]) : Option<T>.None;
+            case IList<T> list:
+                return index < list.Count ? Option<T>.Some(list[index]) : Option<T>.None;
+
+            case IReadOnlyList<T> readOnlyList:
+                return index < readOnlyList.Count ? Option<T>.Some(readOnlyList[index]) : Option<T>.None;
         }
 
         var remaining = index;
@@ -279,12 +347,48 @@ public static class EnumerableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
 
-        // 先取得長度以預先配置容量，避免成功路徑上 List 反覆擴充（每次擴充都是一次配置 + 複製）。
-        // 取捨：短路路徑（提前遇到 None/Err）會配置用不到的容量。這是刻意的選擇——
-        // 短路時該 List 本來就會被整個丟棄，多配置的成本一次付清；而成功路徑才是需要最佳化的常見情況。
-        var values = source.TryGetNonEnumeratedCount(out var count) ? new List<T>(count) : [];
+        // 陣列與 List<T> 走 span：省下 enumerator 配置與介面派送，並讓邊界檢查可被 JIT 消除。
+        // 走訪過程不回呼使用者程式碼，集合不可能在期間被修改，因此持有 span 是安全的。
+        return source switch
+        {
+            Option<T>[] array => SequenceCore<T>(array),
+            List<Option<T>> list => SequenceCore<T>(CollectionsMarshal.AsSpan(list)),
+            _ => SequenceEnumerable(source)
+        };
 
-        foreach (var option in source)
+        static Option<List<T>> SequenceEnumerable(IEnumerable<Option<T>> source)
+        {
+            // 先取得長度以預先配置容量，避免成功路徑上 List 反覆擴充（每次擴充都是一次配置 + 複製）。
+            // 取捨：短路路徑（提前遇到 None）會配置用不到的容量。這是刻意的選擇——
+            // 短路時該 List 本來就會被整個丟棄，多配置的成本一次付清；而成功路徑才是需要最佳化的常見情況。
+            var values = source.TryGetNonEnumeratedCount(out var count) ? new List<T>(count) : [];
+
+            foreach (var option in source)
+            {
+                if (!option.TryGetValue(out var value))
+                {
+                    return Option<List<T>>.None;
+                }
+
+                values.Add(value);
+            }
+
+            return Option<List<T>>.Some(values);
+        }
+    }
+
+    /// <summary>
+    /// <see cref="Sequence{T}(IEnumerable{Option{T}})"/> 的 span 快速路徑本體。
+    /// </summary>
+    /// <remarks>
+    /// 以 <c>ref readonly</c> 走訪，避免每輪複製一份 <see cref="Option{T}"/>——
+    /// 對較大的 <typeparamref name="T"/>（例如 <see cref="Guid"/>，<c>Option&lt;Guid&gt;</c> 為 20 bytes）差異可觀。
+    /// </remarks>
+    private static Option<List<T>> SequenceCore<T>(ReadOnlySpan<Option<T>> source) where T : notnull
+    {
+        var values = new List<T>(source.Length);
+
+        foreach (ref readonly var option in source)
         {
             if (!option.TryGetValue(out var value))
             {
@@ -326,12 +430,45 @@ public static class EnumerableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
 
-        // 先取得長度以預先配置容量，避免成功路徑上 List 反覆擴充（每次擴充都是一次配置 + 複製）。
-        // 取捨：短路路徑（提前遇到 None/Err）會配置用不到的容量。這是刻意的選擇——
-        // 短路時該 List 本來就會被整個丟棄，多配置的成本一次付清；而成功路徑才是需要最佳化的常見情況。
-        var values = source.TryGetNonEnumeratedCount(out var count) ? new List<T>(count) : [];
+        // 快速路徑的理由與安全性說明同 Sequence 的 Option 版本。
+        return source switch
+        {
+            Result<T, TE>[] array => SequenceCore<T, TE>(array),
+            List<Result<T, TE>> list => SequenceCore<T, TE>(CollectionsMarshal.AsSpan(list)),
+            _ => SequenceEnumerable(source)
+        };
 
-        foreach (var result in source)
+        static Result<List<T>, TE> SequenceEnumerable(IEnumerable<Result<T, TE>> source)
+        {
+            // 先取得長度以預先配置容量，避免成功路徑上 List 反覆擴充（每次擴充都是一次配置 + 複製）。
+            // 取捨：短路路徑（提前遇到 Err）會配置用不到的容量。這是刻意的選擇——
+            // 短路時該 List 本來就會被整個丟棄，多配置的成本一次付清；而成功路徑才是需要最佳化的常見情況。
+            var values = source.TryGetNonEnumeratedCount(out var count) ? new List<T>(count) : [];
+
+            foreach (var result in source)
+            {
+                if (!result.TryGetOk(out var value, out var error))
+                {
+                    return Result<List<T>, TE>.Err(error);
+                }
+
+                values.Add(value);
+            }
+
+            return Result<List<T>, TE>.Ok(values);
+        }
+    }
+
+    /// <summary>
+    /// <see cref="Sequence{T,TE}(IEnumerable{Result{T,TE}})"/> 的 span 快速路徑本體，理由同 <see cref="SequenceCore{T}"/>。
+    /// </summary>
+    private static Result<List<T>, TE> SequenceCore<T, TE>(ReadOnlySpan<Result<T, TE>> source)
+        where T : notnull
+        where TE : notnull
+    {
+        var values = new List<T>(source.Length);
+
+        foreach (ref readonly var result in source)
         {
             if (!result.TryGetOk(out var value, out var error))
             {
@@ -358,6 +495,13 @@ public static class EnumerableExtensions
     /// <see cref="Sequence{T,TE}"/> 在第一個錯誤就短路；本方法會走訪<b>全部</b>元素並蒐集所有錯誤，
     /// 適合「一次回報所有驗證問題」的場景。代價是必然走訪整個序列，且會配置兩份清單。
     /// </para>
+    /// <para><b>容量策略</b></para>
+    /// <para>
+    /// 已知長度時只為<b>成功值</b>清單預配容量，錯誤清單維持惰性成長。
+    /// 這是刻意的不對稱：本方法必然走訪全部元素（不像 <see cref="Sequence{T,TE}"/> 會短路），
+    /// 因此預配不會浪費；而典型用途是驗證，絕大多數元素預期為 Ok，
+    /// 若兩份都按總長度預配，錯誤清單幾乎必然是純粹浪費。
+    /// </para>
     /// </remarks>
     /// <example>
     /// <code>
@@ -375,10 +519,46 @@ public static class EnumerableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
 
-        List<T> values = [];
+        // 快速路徑的理由與安全性說明同 Sequence。
+        return source switch
+        {
+            Result<T, TE>[] array => PartitionCore<T, TE>(array),
+            List<Result<T, TE>> list => PartitionCore<T, TE>(CollectionsMarshal.AsSpan(list)),
+            _ => PartitionEnumerable(source)
+        };
+
+        static (List<T> Values, List<TE> Errors) PartitionEnumerable(IEnumerable<Result<T, TE>> source)
+        {
+            var values = source.TryGetNonEnumeratedCount(out var count) ? new List<T>(count) : [];
+            List<TE> errors = [];
+
+            foreach (var result in source)
+            {
+                if (result.TryGetOk(out var value, out var error))
+                {
+                    values.Add(value);
+                }
+                else
+                {
+                    errors.Add(error);
+                }
+            }
+
+            return (values, errors);
+        }
+    }
+
+    /// <summary>
+    /// <see cref="Partition{T,TE}"/> 的 span 快速路徑本體，理由同 <see cref="SequenceCore{T}"/>。
+    /// </summary>
+    private static (List<T> Values, List<TE> Errors) PartitionCore<T, TE>(ReadOnlySpan<Result<T, TE>> source)
+        where T : notnull
+        where TE : notnull
+    {
+        var values = new List<T>(source.Length);
         List<TE> errors = [];
 
-        foreach (var result in source)
+        foreach (ref readonly var result in source)
         {
             if (result.TryGetOk(out var value, out var error))
             {

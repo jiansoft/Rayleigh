@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+
+    <!-- 這不是 xUnit 測試專案，明確標示以免被 `dotnet test` 當成測試組件掃描。 -->
+    <IsTestProject>false</IsTestProject>
+
+    <!--
+      本專案存在的唯一目的，是把 src 專案的 <IsAotCompatible>true</IsAotCompatible> 從「宣告」變成「證據」。
+
+      IsAotCompatible 只會開啟分析器；分析器能抓到明顯的反射與動態程式碼，
+      但無法證明整個泛型具現化圖在 Native AOT 下真的能編譯並執行。
+      唯有實際 `dotnet publish -p:PublishAot=true` 並執行產出的原生執行檔才能證明這件事。
+
+      TrimmerSingleWarn=false：預設會把所有修剪警告摺疊成一則摘要，
+      在此我們要看到每一則的具體來源。
+    -->
+    <PublishAot>true</PublishAot>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\jIAnSoft.Rayleigh\jIAnSoft.Rayleigh.csproj" />
+  </ItemGroup>
+
+</Project>

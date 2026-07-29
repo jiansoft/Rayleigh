@@ -7,6 +7,87 @@
 
 ---
 
+## [未發布]
+
+### 修正
+
+- **[重要] `Result<T, TE>.Deconstruct` 未中毒化未初始化狀態。**
+
+  26.7.26 修正了未初始化偵測，但漏掉了 `Deconstruct`——而它正是 XML 文件推薦的
+  pattern matching 入口。修正前，`default(Result<T, TE>)` 解構後會得到
+  `(false, default(T), default(TE))`：
+
+  ```csharp
+  public enum UserError { NotFound, Inactive }   // NotFound == 0
+
+  var message = default(Result<User, UserError>) switch
+  {
+      (true,  var user, _) => $"Hello, {user.Name}",
+      (false, _, var err)  => $"Error: {err}"     // 修正前：印出 "Error: NotFound"
+  };                                             // 修正後：InvalidOperationException
+  ```
+
+  這與 26.7.26 修掉的 `ToString()` 輸出 `"Err(None)"` 是同一個問題的不同出口：
+  未初始化的 struct 偽裝成一個合法的業務錯誤。現在 `Deconstruct` 與
+  `Match` / `Map` / `Unwrap` 一致，對未初始化狀態拋出 `InvalidOperationException`。
+
+- **`Result<T, TE>.Or(other)` 未驗證 `other`。**
+
+  修正前只檢查自身，因此 `Err(x).Or(default)` 會回傳一個未初始化的 `Result`，
+  讓該狀態從組合子「流出」，在遠離錯誤來源的後續呼叫點才爆炸。現在兩個運算元都會驗證，
+  與 `CompareTo` 的既有行為一致。
+
+### 新增
+
+- `Result<T, TE>.IsUninitialized` — 唯一能**安全**偵測未初始化狀態的成員。
+
+  `IsErr` 對未初始化同樣回傳 `true`，但緊接著呼叫 `UnwrapErr()` / `TryGetErr()` 會拋出例外。
+  若你的程式碼可能接收到未初始化的 `Result`（例如來自 `new Result<T, TE>[n]`），請先以本屬性判斷：
+
+  ```csharp
+  if (result.IsUninitialized)      { /* 呼叫端的 bug */ }
+  else if (result.TryGetErr(out var error)) { /* 真正的業務錯誤 */ }
+  ```
+
+### 效能
+
+- `Sequence`（`Option` 版與 `Result` 版）與 `Partition` 新增集合快速路徑：
+  來源為陣列或 `List<T>` 時改走 `ReadOnlySpan<T>`，避開 enumerator 配置與介面派送，
+  並以 `ref readonly` 走訪避免每輪複製整個 struct。
+
+  這些方法的走訪過程不回呼任何使用者程式碼，集合不可能在期間被修改，因此持有 span 是安全的。
+
+- `Partition` 在來源長度已知時為成功值清單預配容量（先前完全未預配）。
+  刻意只預配成功值而不預配錯誤清單：本方法必然走訪全部元素，且典型用途是驗證，
+  絕大多數元素預期為 Ok。
+
+- `FirstOrNone` / `SingleOrNone` / `ElementAtOrNone` 補上 `IReadOnlyList<T>` 快速路徑。
+  先前只測試 `IList<T>`，兩者沒有繼承關係，只實作前者的唯讀集合會落到泛用列舉路徑。
+
+### 建置與 CI
+
+- `LangVersion` 由 `12.0` 提升至 `13.0`。
+
+  先前鎖 12.0 是為了取「net8.0 預設值」的交集，但那把手段與目的混為一談——
+  要防的是「兩個 TFM 用不同語言版本」，不是「不能用新語法」。
+  `LangVersion` 是編譯器設定，與 TFM 無關，顯式指定同一個值即可消除分歧。
+  仍不可升到 14.0，且即使在 13.0 也必須避開需要 net9.0+ runtime 的功能
+  （`allows ref struct`、`System.Threading.Lock`、`OverloadResolutionPriorityAttribute`）。
+
+- 啟用 `EnablePackageValidation`：自動檢查 net8.0 與 net10.0 兩個目標框架的 public API 表面一致。
+
+- 新增 `tests/jIAnSoft.Rayleigh.AotSmokeTest`：以實際 Native AOT 發佈並執行的方式，
+  驗證 `IsAotCompatible` 的宣告。CI 對 net8.0 與 net10.0 各執行一次。
+
+- CI 新增 `dotnet pack` 步驟（先前第一次打包發生在 release workflow，太晚發現問題），
+  並將測試拆成 net8.0 / net10.0 兩個步驟以便定位失敗。
+
+- 新增手動觸發的 benchmark workflow；benchmark 設定改為一律同時在 net8.0 與 net10.0 上執行。
+
+- `README.zh-TW.md` 隨套件一併發佈。
+
+---
+
 ## [26.7.26]
 
 ### 修正

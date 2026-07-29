@@ -470,6 +470,7 @@ var maybeError = result.Err();
 | `Ok(T)` / `Err(E)` | 建構 |
 | 從 `T` / `E` / `Ok<T>` / `Err<E>` 隱式轉換 | 隱式轉換 |
 | `IsOk` / `IsErr` | 狀態檢查 |
+| `IsUninitialized` | 偵測 `default(Result<T,E>)`，是唯一不拋出例外就能回報此狀態的成員。詳見[未初始化的 Result](#未初始化的-result) |
 | `Contains(T)` / `ContainsErr(E)` | 值/錯誤相等性檢查 |
 | `IsOkAnd(predicate)` / `IsErrAnd(predicate)` | 條件檢查 |
 | `Match(ok, err)` | 模式比對 |
@@ -487,6 +488,43 @@ var maybeError = result.Err();
 | `Equals` / `CompareTo` / 比較運算子 | 相等、排序與比較支援；`Err` 會排在 `Ok` 前面 |
 | `ToString()` | 方便偵錯的 `Ok(value)` 或 `Err(error)` 文字 |
 | `Flatten()` | 展平巢狀 `Result<Result<T,E>,E>`（擴充方法） |
+
+#### 未初始化的 Result
+
+`Result<T, E>` 是 struct，因此 `default(Result<T, E>)` 是可以取得的——未指派的欄位、
+`new Result<T, E>[n]` 的元素、反序列化的值，都不曾經過 `Ok()` 或 `Err()`。
+這種值既沒有成功值也沒有錯誤，因此被視為獨立的第三種狀態，而不是悄悄當成 `Err` 處理。
+
+所有會讀取內部值或錯誤的成員都會對此狀態拋出 `InvalidOperationException`，
+**包含 `Deconstruct`**——這確保模式比對不會觀察到一個憑空捏造的錯誤：
+
+```csharp
+public enum UserError { NotFound, Inactive }   // NotFound == 0
+
+var result = default(Result<User, UserError>);
+
+result.Unwrap();                       // 拋出 InvalidOperationException
+var (isOk, user, error) = result;      // 拋出——若不拋，error 會讀到 NotFound
+result.Or(Result<User, UserError>.Ok(u));  // 拋出（兩個運算元都必須已初始化）
+```
+
+依 .NET 慣例，`Equals`、`GetHashCode` 與 `ToString` 一律不拋出例外，
+因此仍可安全用於字典與偵錯工具的監看視窗。未初始化的 Result 只會等於另一個未初始化的 Result，
+**不會**等於錯誤值恰好為 `default(E)` 的合法 `Err`，且 `ToString()` 輸出 `"Uninitialized"`。
+
+`IsErr` 對未初始化狀態同樣回傳 `true`（維持原本的兩態語意），因此無法區分兩者。
+若你的程式碼可能合理地接收到未初始化的 Result，請改用 `IsUninitialized`：
+
+```csharp
+if (result.IsUninitialized)
+{
+    // 呼叫端的 bug：這個 Result 從未被賦值。
+}
+else if (result.TryGetErr(out var error))
+{
+    // 真正的業務錯誤。
+}
+```
 
 ### 輔助型別
 

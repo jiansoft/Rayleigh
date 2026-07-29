@@ -74,13 +74,27 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 
-    <!-- AOT / Trimming: 純泛型運算、無反射與動態程式碼產生，適合宣告為完全相容 -->
+    <!-- AOT / Trimming: 純泛型運算、無反射與動態程式碼產生，適合宣告為完全相容。
+         此宣告由 tests/jIAnSoft.Rayleigh.AotSmokeTest 以實際 Native AOT 發佈驗證，
+         而非僅停留在屬性層面。 -->
     <IsAotCompatible>true</IsAotCompatible>
     <IsTrimmable>true</IsTrimmable>
+
+    <!--
+      套件驗證。對本專案最重要的是「相容框架驗證」：
+      確保 net8.0 與 net10.0 兩個 TFM 的 public API 表面一致，
+      不會出現「只有 net10.0 才有的成員」而讓 net8.0 使用者在升級時遇到意外。
+      本專案目前完全沒有條件編譯，API 天然一致——啟用此項是把「碰巧一致」變成「機制保證一致」。
+
+      PackageValidationBaselineVersion 刻意留空：設定後會從 nuget.org 下載該版本比對，
+      需要網路且必須低於目前 <Version>。等下次版本號提升時再一併設為前一版（26.7.26）。
+    -->
+    <EnablePackageValidation>true</EnablePackageValidation>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\README.zh-TW.md" Pack="true" PackagePath="\" />
     <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
   </ItemGroup>
 

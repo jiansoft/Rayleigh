@@ -4,13 +4,25 @@
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
 
     <!--
-      顯式鎖定為 C# 12（net8.0 的預設值），而非讓各 TFM 各自採用預設語言版本。
+      顯式鎖定語言版本，而非讓各 TFM 各自採用預設值。
       若不鎖定，net8.0 會以 C# 12 編譯、net10.0 以 C# 14 編譯，導致使用 C# 13+ 語法時
       「只有 net8.0 建置失敗」——問題會延遲到 CI 的多目標建置才浮現，而非在本機第一時間發現。
-      鎖定為兩個 TFM 的語言版本交集，可確保任何新語法在本機就立刻被驗證。
-      未來若停止支援 net8.0，再一併調高此值。
+      顯式指定同一個值即可消除這種分歧：LangVersion 是編譯器設定，與 TFM 無關，
+      對 net8.0 與 net10.0 一體適用，任何新語法在本機第一次建置就會被兩個目標同時驗證。
+
+      版本選擇 13.0 而非 12.0：先前鎖 12.0 是為了取「net8.0 預設值」的交集，
+      但那其實把手段和目的混為一談——真正要防的是「兩個 TFM 用不同版本」，不是「不能用新語法」。
+      13.0 的語法特性（params collections、partial properties 等）不需要 runtime 支援，
+      在 net8.0 上同樣可用。
+
+      不可升到 14.0：C# 14 的部分特性需要 runtime 支援，在 net8.0 上無法運作。
+      同理，即使停留在 13.0，也必須避開以下需要 net9.0+ runtime 的功能：
+        - ref struct 作為泛型引數 / 實作介面（allows ref struct）
+        - System.Threading.Lock 的 lock 語句特殊語意
+        - OverloadResolutionPriorityAttribute
+      未來若停止支援 net8.0，再一併調高此值並解除上述限制。
     -->
-    <LangVersion>12.0</LangVersion>
+    <LangVersion>13.0</LangVersion>
 
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

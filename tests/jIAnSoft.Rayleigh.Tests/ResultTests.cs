@@ -1218,18 +1218,138 @@ public class ResultTests
     }
 
     /// <summary>
-    /// 驗證 Deconstruct 在未初始化狀態下解構為 (false, default, null)，不會拋出例外。
+    /// 驗證 Deconstruct 在未初始化狀態下拋出 InvalidOperationException，而非解構為看似合法的 (false, default, default)。
     /// </summary>
+    /// <remarks>
+    /// 解構是「讀取內部值」的操作，因此與 Match／Map 同樣中毒化未初始化狀態。
+    /// 若不拋出，<c>(false, _, var e)</c> 這條 XML 文件推薦的 pattern matching 分支，
+    /// 在 TE 為 enum 時會拿到 <c>default(TE)</c>——一個憑空捏造的業務錯誤。
+    /// </remarks>
     [Fact]
-    public void Deconstruct_Uninitialized_ReturnsDefaultValues()
+    public void Deconstruct_Uninitialized_Throws()
     {
         var result = default(Result<int, string>);
 
-        var (isOk, value, error) = result;
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+        {
+            var (_, _, _) = result;
+        });
 
-        Assert.False(isOk);
-        Assert.Equal(default, value);
-        Assert.Null(error);
+        Assert.Contains("uninitialized", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// 同 <see cref="Deconstruct_Uninitialized_Throws"/>，但以<b>值型別</b>錯誤具現化——
+    /// 這正是本防護原本最需要生效、卻最容易被誤判為「已經正常」的路徑：
+    /// TestError.NotFound = 0，若不拋出，呼叫端會得到一個看似合法的 Err(NotFound)。
+    /// </summary>
+    [Fact]
+    public void Deconstruct_UninitializedWithEnumError_Throws()
+    {
+        var result = default(Result<int, TestError>);
+
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            var (_, _, _) = result;
+        });
+    }
+
+    /// <summary>
+    /// 驗證 Deconstruct 在 Ok／Err 兩個已初始化狀態下不受防護影響，行為與先前一致。
+    /// </summary>
+    [Fact]
+    public void Deconstruct_Initialized_IsUnaffectedByUninitializedGuard()
+    {
+        var (okIsOk, okValue, okError) = Result<int, TestError>.Ok(42);
+        Assert.True(okIsOk);
+        Assert.Equal(42, okValue);
+        Assert.Equal(default, okError);
+
+        var (errIsOk, errValue, errError) = Result<int, TestError>.Err(TestError.Unauthorized);
+        Assert.False(errIsOk);
+        Assert.Equal(default, errValue);
+        Assert.Equal(TestError.Unauthorized, errError);
+    }
+
+    // ================================================================
+    // IsUninitialized
+    // ================================================================
+
+    /// <summary>
+    /// 驗證 IsUninitialized 能安全地區分「未初始化」與「合法的 Err」，
+    /// 包含錯誤值恰好等於 default(TE) 的 enum 情境——這是 IsErr 無法區分的。
+    /// </summary>
+    [Fact]
+    public void IsUninitialized_DistinguishesDefaultStructFromLegitimateErr()
+    {
+        Assert.True(default(Result<int, string>).IsUninitialized);
+        Assert.True(default(Result<int, TestError>).IsUninitialized);
+
+        Assert.False(Result<int, string>.Ok(1).IsUninitialized);
+        Assert.False(Result<int, string>.Err("boom").IsUninitialized);
+
+        // TestError.NotFound == default(TestError)：這是先前版本會誤判的關鍵案例。
+        var errWithDefaultValue = Result<int, TestError>.Err(default);
+        Assert.False(errWithDefaultValue.IsUninitialized);
+        Assert.True(errWithDefaultValue.IsErr);
+    }
+
+    /// <summary>
+    /// 驗證 IsUninitialized 本身不會拋出例外——它是唯一能「安全」偵測未初始化狀態的成員，
+    /// 若它自己會拋，就失去存在意義了。
+    /// </summary>
+    [Fact]
+    public void IsUninitialized_OnUninitialized_DoesNotThrow()
+    {
+        var result = default(Result<int, TestError>);
+
+        Assert.True(result.IsUninitialized);
+
+        // 對照：IsErr 同樣回傳 true 且不拋，但緊接著取值就會拋——這正是需要 IsUninitialized 的理由。
+        Assert.True(result.IsErr);
+        Assert.Throws<InvalidOperationException>(() => result.TryGetErr(out _));
+    }
+
+    // ================================================================
+    // Or：兩個運算元都必須已初始化
+    // ================================================================
+
+    /// <summary>
+    /// 驗證 Or 對「替代值」也做未初始化檢查，避免未初始化的 Result 從組合子流出，
+    /// 在遠離錯誤來源的後續呼叫點才爆炸。
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Or_WithUninitializedOther_Throws(bool selfIsOk)
+    {
+        var self = selfIsOk ? Result<int, string>.Ok(1) : Result<int, string>.Err("boom");
+
+        var ex = Assert.Throws<InvalidOperationException>(() => self.Or(default));
+
+        Assert.Contains("uninitialized", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// 同上，以值型別錯誤具現化。
+    /// </summary>
+    [Fact]
+    public void Or_WithUninitializedOtherAndEnumError_Throws()
+    {
+        var self = Result<int, TestError>.Err(TestError.Unauthorized);
+
+        Assert.Throws<InvalidOperationException>(() => self.Or(default));
+    }
+
+    /// <summary>
+    /// 驗證兩個運算元都已初始化時，Or 的行為完全不變。
+    /// </summary>
+    [Fact]
+    public void Or_BothInitialized_BehavesAsBefore()
+    {
+        Assert.Equal(Result<int, string>.Ok(1), Result<int, string>.Ok(1).Or(Result<int, string>.Ok(2)));
+        Assert.Equal(Result<int, string>.Ok(2), Result<int, string>.Err("boom").Or(Result<int, string>.Ok(2)));
+        Assert.Equal(Result<int, string>.Err("b"), Result<int, string>.Err("a").Or(Result<int, string>.Err("b")));
     }
 
     // ================================================================
@@ -1413,7 +1533,9 @@ public class ResultTests
         yield return new object[] { "Map", (Action<Result<int, string>>)(r => r.Map(x => x)) };
         yield return new object[] { "MapErr", (Action<Result<int, string>>)(r => r.MapErr(e => e)) };
         yield return new object[] { "Bind", (Action<Result<int, string>>)(r => r.Bind(x => Result<int, string>.Ok(x))) };
-        yield return new object[] { "Or", (Action<Result<int, string>>)(r => r.Or(Result<int, string>.Ok(1))) };
+        yield return new object[] { "Or(self 未初始化)", (Action<Result<int, string>>)(r => r.Or(Result<int, string>.Ok(1))) };
+        // Or 的兩個運算元都必須已初始化——只驗證 self 會讓未初始化狀態從組合子流出。
+        yield return new object[] { "Or(other 未初始化)", (Action<Result<int, string>>)(_ => Result<int, string>.Ok(1).Or(default)) };
         yield return new object[] { "OrElse", (Action<Result<int, string>>)(r => r.OrElse(_ => Result<int, string>.Ok(1))) };
         yield return new object[] { "Tap", (Action<Result<int, string>>)(r => r.Tap(_ => { })) };
         yield return new object[] { "TapErr", (Action<Result<int, string>>)(r => r.TapErr(_ => { })) };
@@ -1434,6 +1556,16 @@ public class ResultTests
         yield return new object[]
         {
             "SelectMany", (Action<Result<int, string>>)(r => r.SelectMany(x => Result<int, string>.Ok(x), (a, b) => a + b))
+        };
+        yield return new object[] { "CompareTo", (Action<Result<int, string>>)(r => r.CompareTo(Result<int, string>.Ok(1))) };
+        // Deconstruct 同樣是「讀取內部值」的操作，必須中毒化——
+        // 這是 26.7.26 修正 ToString 時漏掉的成員，且它是文件推薦的 pattern matching 入口。
+        yield return new object[]
+        {
+            "Deconstruct", (Action<Result<int, string>>)(r =>
+            {
+                var (_, _, _) = r;
+            })
         };
     }
 
@@ -1845,7 +1977,8 @@ public class ResultTests
         yield return ["Map", (Action<Result<int, TestError>>)(r => r.Map(x => x))];
         yield return ["MapErr", (Action<Result<int, TestError>>)(r => r.MapErr(e => e))];
         yield return ["Bind", (Action<Result<int, TestError>>)(r => r.Bind(Result<int, TestError>.Ok))];
-        yield return ["Or", (Action<Result<int, TestError>>)(r => r.Or(Result<int, TestError>.Ok(1)))];
+        yield return ["Or(self 未初始化)", (Action<Result<int, TestError>>)(r => r.Or(Result<int, TestError>.Ok(1)))];
+        yield return ["Or(other 未初始化)", (Action<Result<int, TestError>>)(_ => Result<int, TestError>.Ok(1).Or(default))];
         yield return ["OrElse", (Action<Result<int, TestError>>)(r => r.OrElse(_ => Result<int, TestError>.Ok(1)))];
         yield return ["Tap", (Action<Result<int, TestError>>)(r => r.Tap(_ => { }))];
         yield return ["TapErr", (Action<Result<int, TestError>>)(r => r.TapErr(_ => { }))];
@@ -1869,6 +2002,13 @@ public class ResultTests
             (Action<Result<int, TestError>>)(r => r.SelectMany(Result<int, TestError>.Ok, (a, b) => a + b))
         ];
         yield return ["CompareTo", (Action<Result<int, TestError>>)(r => r.CompareTo(Result<int, TestError>.Ok(1)))];
+        yield return
+        [
+            "Deconstruct", (Action<Result<int, TestError>>)(r =>
+            {
+                var (_, _, _) = r;
+            })
+        ];
     }
 
     /// <summary>
