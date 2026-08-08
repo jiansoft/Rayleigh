@@ -66,6 +66,13 @@ jobs:
         output: both
         thresholds: '60 80'
 
+    - name: Upload Coverage to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: TestResults/**/coverage.cobertura.xml
+        fail_ci_if_error: true
+
     - name: Add Coverage PR Comment
       uses: marocchino/sticky-pull-request-comment@v3
       if: github.event_name == 'pull_request'
