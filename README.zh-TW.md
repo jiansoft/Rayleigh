@@ -2,7 +2,13 @@
 
 # Rayleigh
 
-[![NuGet version](https://img.shields.io/nuget/v/jIAnSoft.Rayleigh.svg?logo=nuget)](https://www.nuget.org/packages/jIAnSoft.Rayleigh/)
+[![NuGet Version](https://img.shields.io/nuget/v/jIAnSoft.Rayleigh.svg?logo=nuget)](https://www.nuget.org/packages/jIAnSoft.Rayleigh/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/jIAnSoft.Rayleigh.svg?logo=nuget)](https://www.nuget.org/packages/jIAnSoft.Rayleigh/)
+[![.NET CI](https://github.com/jiansoft/Rayleigh/actions/workflows/dotnet.yml/badge.svg?branch=master)](https://github.com/jiansoft/Rayleigh/actions/workflows/dotnet.yml)
+[![codecov](https://codecov.io/gh/jiansoft/Rayleigh/branch/master/graph/badge.svg)](https://codecov.io/gh/jiansoft/Rayleigh)
+[![Target Frameworks](https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
+[![Native AOT](https://img.shields.io/badge/Native%20AOT-verified-success?logo=dotnet)](https://github.com/jiansoft/Rayleigh/actions/workflows/dotnet.yml)
+[![License: MIT](https://img.shields.io/github/license/jiansoft/Rayleigh.svg)](LICENSE)
 
 受 Rust 啟發的 C# Option 與 Result 型別。
 
