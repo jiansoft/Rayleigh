@@ -15,12 +15,9 @@
       13.0 的語法特性（params collections、partial properties 等）不需要 runtime 支援，
       在 net8.0 上同樣可用。
 
-      不可升到 14.0：C# 14 的部分特性需要 runtime 支援，在 net8.0 上無法運作。
-      同理，即使停留在 13.0，也必須避開以下需要 net9.0+ runtime 的功能：
-        - ref struct 作為泛型引數 / 實作介面（allows ref struct）
-        - System.Threading.Lock 的 lock 語句特殊語意
-        - OverloadResolutionPriorityAttribute
-      未來若停止支援 net8.0，再一併調高此值並解除上述限制。
+      新語法是否可用須逐項驗證編譯器、目標框架與參考組件需求；
+      提高 LangVersion 不會自動提供較新 runtime 的型別或能力。
+      此處保留 13.0，若日後調高，仍須通過兩個 TFM 的建置、測試與套件驗證。
     -->
     <LangVersion>13.0</LangVersion>
 

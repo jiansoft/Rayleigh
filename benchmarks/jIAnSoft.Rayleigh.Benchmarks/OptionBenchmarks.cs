@@ -23,14 +23,14 @@ public class OptionBenchmarks
 
     /// <summary>Map -> Bind -> Match 鏈，全程使用 static lambda，不捕獲任何外部變數。</summary>
     [Benchmark]
-    public string MapBindMatchChain_StaticLambda()
+    public int MapBindMatchChain_StaticLambda()
     {
         return _some
             .Map(static x => x * 2)
             .Bind(static x => x > 0 ? Option<int>.Some(x) : Option<int>.None)
             .Match(
-                some: static v => $"value:{v}",
-                none: static () => "none");
+                some: static v => v,
+                none: static () => -1);
     }
 
     /// <summary>
@@ -38,16 +38,20 @@ public class OptionBenchmarks
     /// 預期會顯示非零的 Allocated 欄位——這是 C# closure 的固有成本，並非 Option&lt;T&gt; 本身的配置。
     /// </summary>
     [Benchmark]
-    public string MapBindMatchChain_CapturingClosure()
+    public int MapBindMatchChain_CapturingClosure()
     {
         var offset = _externalState;
         return _some
-            .Map(x => x * 2 + offset)
+            .Map(x => x * 2 + offset - 10)
             .Bind(x => x > 0 ? Option<int>.Some(x) : Option<int>.None)
             .Match(
-                some: v => $"value:{v}",
-                none: () => "none");
+                some: static v => v,
+                none: static () => -1);
     }
+
+    /// <summary>字串格式化另行量測，避免混入容器的配置成本。</summary>
+    [Benchmark]
+    public string Match_FormatString() => _some.Match(static v => $"value:{v}", static () => "none");
 
     [Benchmark]
     public bool TryGetValue_Some()

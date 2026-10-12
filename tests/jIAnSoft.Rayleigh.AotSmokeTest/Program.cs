@@ -40,6 +40,28 @@ void Check(string name, Func<bool> assertion)
 
 Console.WriteLine($"Rayleigh AOT smoke test — runtime {Environment.Version}");
 
+Check("Option stateful Map/Bind", () =>
+    Option<int>.Some(20).Map(1, static (x, state) => x + state)
+        .Bind(2, static (x, state) => Option<int>.Some(x * state)).Unwrap() == 42);
+
+Check("Result stateful Map", () =>
+    Result<int, string>.Ok(20).Map(1, static (x, state) => x + state)
+        .Map(2, static (x, state) => x * state).Unwrap() == 42);
+
+Check("default Ok marker rejects null", () =>
+{
+    try
+    {
+        Result<string, int> result = default(Ok<string>);
+        _ = result;
+        return false;
+    }
+    catch (ArgumentNullException error)
+    {
+        return error.ParamName == "value";
+    }
+});
+
 // --- Option：值型別與參考型別各一 ---
 Check("Option<int> Some/Map/Bind/Match", () =>
     Option<int>.Some(21)
@@ -136,6 +158,20 @@ Check("Partition 拆分", () =>
 
 Check("Values() 迭代器", () =>
     new[] { Option<int>.Some(1), Option<int>.None, Option<int>.Some(3) }.Values().Sum() == 4);
+
+Check("Values() List／參考型別", () =>
+{
+    List<Option<string>> source = ["first", Option<string>.None, "last"];
+    return source.Values().SequenceEqual(["first", "last"]);
+});
+
+Check("Values() 一般序列／Guid", () =>
+{
+    var value = Guid.Parse("11223344-5566-7788-99aa-bbccddeeff00");
+    var source = Enumerable.Range(0, 3)
+        .Select(i => i == 1 ? Option<Guid>.Some(value) : Option<Guid>.None);
+    return source.Values().Single() == value;
+});
 
 Check("集合入口方法", () =>
     new[] { 0, 1, 2 }.FirstOrNone().Unwrap() == 0

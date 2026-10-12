@@ -417,8 +417,8 @@ var maybeError = result.Err();
 
 ## 採用現代 .NET 特性
 
-- **零堆積分配** — 所有核心型別（`Option<T>`、`Result<T, E>`、`Unit`）皆為 `readonly struct`，完全存放於堆疊上。
-- **AggressiveInlining** — 所有關鍵路徑方法皆由 JIT 內聯，開銷極低。
+- **容器無須獨立配置** — 核心型別（`Option<T>`、`Result<T, E>`、`Unit`）皆為 `readonly struct`，儲存位置依擁有者而定；boxing、捕獲變數的 lambda、值所引用的物件、集合與真正暫停的非同步操作仍可能配置。
+- **AggressiveInlining** — 關鍵路徑提供內聯提示，是否採用仍由 JIT 決定。
 - **`IEquatable<T>`** 與 **`IComparable<T>`** — `Option` 和 `Unit` 可進行比較、排序，並作為字典鍵使用。
 - **可空標註** — 完整支援 C# 可空參考型別分析。
 - **LINQ 查詢語法** — `Select`、`SelectMany`、`Where` 支援 `from`/`where`/`select` 語法。
@@ -454,6 +454,7 @@ var maybeError = result.Err();
 | `IsSomeAnd(predicate)` | 條件檢查 |
 | `Match(some, none)` | 模式比對（有/無回傳值版本） |
 | `Map(mapper)` | 轉換內部值 |
+| `Map(state, mapper)` / `Bind(state, binder)` | 顯式傳入狀態，讓 static lambda 不必捕獲區域變數 |
 | `Filter(predicate)` | 條件過濾 |
 | `Bind(binder)` | Monadic 綁定（flatMap） |
 | `Zip(other)` / `ZipWith(other, zipper)` | 組合兩個 Option |
@@ -481,6 +482,7 @@ var maybeError = result.Err();
 | `IsOkAnd(predicate)` / `IsErrAnd(predicate)` | 條件檢查 |
 | `Match(ok, err)` | 模式比對 |
 | `Map(mapper)` / `MapErr(mapper)` | 轉換值或錯誤 |
+| `Map(state, mapper)` | 顯式傳入狀態，讓 static mapper 不必捕獲區域變數 |
 | `Bind(binder)` | Monadic 綁定 |
 | `Or(other)` / `OrElse(factory)` | 備援值 |
 | `Tap(action)` / `TapErr(action)` | 執行副作用 |
@@ -604,10 +606,10 @@ Rayleigh/
 
 ```bash
 # 從頭到尾跑一遍十二個模組
-dotnet run --project examples/jIAnSoft.Rayleigh.Examples
+dotnet run -f net10.0 --project examples/jIAnSoft.Rayleigh.Examples
 
 # 或只跑其中一個——例如第 8 個模組（集合操作）
-dotnet run --project examples/jIAnSoft.Rayleigh.Examples -- 8
+dotnet run -f net10.0 --project examples/jIAnSoft.Rayleigh.Examples -- 8
 ```
 
 | # | 模組 | 內容 |
@@ -647,28 +649,28 @@ dotnet test
 請以 Release 模式執行（BenchmarkDotNet 不允許在 Debug 組態下執行）：
 
 ```bash
-dotnet run -c Release --project benchmarks/jIAnSoft.Rayleigh.Benchmarks
+dotnet run -c Release -f net10.0 --project benchmarks/jIAnSoft.Rayleigh.Benchmarks
 ```
 
 只跑單一組，或以較少迭代快速驗證：
 
 ```bash
 # 單一組
-dotnet run -c Release --project benchmarks/jIAnSoft.Rayleigh.Benchmarks -- --filter '*EnumerableBenchmarks*'
+dotnet run -c Release -f net10.0 --project benchmarks/jIAnSoft.Rayleigh.Benchmarks -- --filter '*EnumerableBenchmarks*'
 
 # 快速模式（精度較低，但快得多）
-dotnet run -c Release --project benchmarks/jIAnSoft.Rayleigh.Benchmarks -- --filter '*' --job short
+dotnet run -c Release -f net10.0 --project benchmarks/jIAnSoft.Rayleigh.Benchmarks -- --filter '*' --warmupCount 3 --iterationCount 8 --iterationTime 100
 ```
 
 | 測試組 | 用以佐證的事項 |
 |---|---|
 | `OptionBenchmarks` | `Option<T>` 本身零配置；對照組呈現 closure 成本屬於**呼叫端**，而非函式庫 |
-| `ResultBenchmarks` | `Result<T,E>` 同上；未初始化防護在成功路徑上無可觀測成本 |
-| `EnumerableBenchmarks` | 集合組合子提供更強的語意，但沒有以效能為代價（與 LINQ 對應物比較） |
+| `ResultBenchmarks` | 量測 `Result<T,E>` 建構、組合子、初始化檢查及呼叫端配置成本 |
+| `EnumerableBenchmarks` | 集合組合子與等價的 LINQ 工作負載對照 |
 | `AsyncPipelineBenchmarks` | sync-source 多載短路時配置 **0 B**，對照它所取代的 `Task.FromResult` 包裝 |
 | `ThrowPathBenchmarks` | 量化「為何錯誤路徑該用 `Result` 而非例外驅動流程控制」 |
 
-代表性數據（BenchmarkDotNet 0.15.8／AMD Ryzen 9 5950X／.NET 10.0.9）：
+歷史代表性數據（BenchmarkDotNet 0.15.8／AMD Ryzen 9 5950X／.NET 10.0.9；不是目前工作目錄的量測）：
 
 | | Mean | Allocated |
 |---|---:|---:|
@@ -679,7 +681,25 @@ dotnet run -c Release --project benchmarks/jIAnSoft.Rayleigh.Benchmarks -- --fil
 | `Task.FromResult(err).BindAsync(...)`（它所取代的包裝寫法） | 38.4 ns | 240 B |
 
 > **關於精度：** 上表以 `--job short`（3 次迭代）取得，`Mean` 欄的誤差區間偏大，僅供方向性參考；
-> `Allocated` 欄則由 GC 計數器確定性量測，數值精確。若需可引用的精確耗時，請移除 `--job short` 重跑。
+> `Allocated` 由 GC 計數器量測；非同步操作或低呼叫次數的攤提結果可能包含測試框架成本。若需可引用的耗時，請使用預設 job 重跑。
+
+.NET 10 審查已使用 BenchmarkDotNet 與原始 commit `6dd8b16` 對照；採用項目與撤回決策摘要見 [CHANGELOG](CHANGELOG.md)。
+
+[2026-10-12 既有修改審核](docs/performance/2026-10-12-prior-changes/README.md) 逐檔說明必要性、重現 null 契約 bug，
+並保留重新量測的 192 個前後對照案例；可用 `./benchmarks/Measure-PriorChanges.ps1` 重跑。
+
+[2026-10-11 Values 審查報告](docs/performance/2026-10-11-values/README.md) 保留 108 個前後對照案例、
+8 個複測案例、原始數據與耗時限制；可用 `./benchmarks/Measure-Values.ps1` 重跑。
+
+mapper 需要呼叫端狀態時，可使用狀態多載搭配 static lambda：
+
+```csharp
+var offset = 10;
+var adjusted = Result<int, string>.Ok(42)
+    .Map(offset, static (value, state) => value + state);
+```
+
+這可避免捕獲 `offset`，但不會消除 mapper 內部或建立狀態本身的配置。
 
 ## 授權條款
 

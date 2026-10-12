@@ -24,22 +24,19 @@ namespace jIAnSoft.Rayleigh;
 /// <para>
 /// 這是安全的，因為這些方法的走訪過程<b>不會回呼任何使用者程式碼</b>
 /// （只讀取 <see cref="Option{T}"/>／<see cref="Result{T,TE}"/> 的狀態欄位），
-/// 集合不可能在走訪期間被修改，因此不需要 <see cref="List{T}"/> enumerator 的版本檢查。
+/// 呼叫端仍不得同時修改來源集合；沒有回呼並不代表支援並行寫入。
 /// 接受委派的方法（例如 <see cref="FirstOrNone{T}(IEnumerable{T}, Func{T, bool})"/>）不適用此結論，
 /// 因此刻意不加快速路徑，詳見該方法的備註。
 /// </para>
 /// <para><b>已量測的取捨</b></para>
 /// <para>
-/// 收益在 net8.0 上全面且顯著（1024 筆時耗時降低約 53%～68%）；在 net10.0 上仍有明顯效益
-/// （約 30%～49%），但幅度較小——因為 .NET 10 的 JIT 已能自行對陣列的列舉做去虛擬化與物件堆疊配置，
-/// 手寫快速路徑等於部分重複了 Runtime 已經做到的事。
+/// Array／List 的 Sequence 先檢查首筆，再建立輸出；成功路徑直接填入預先配置的 List 儲存空間。
+/// Result 的這項調整僅用於 net10.0，net8.0 保留原始 Add 迴圈；一般 IEnumerable 與 Partition
+/// 亦保留原始實作。採用範圍依 BenchmarkDotNet 的原始版對照決定，而非假設每個 Runtime 都會受益。
 /// </para>
 /// <para>
-/// 代價是 net10.0 上<b>極小</b>的輸入（實測 8 筆陣列的 <c>Sequence&lt;Result&gt;</c>）會慢約 4 ns，
-/// 因為多付了一次型別測試，而該規模下 JIT 的自動最佳化本來就已接近最佳。
-/// 這個取捨是刻意接受的：4 ns 相對於該操作必然發生的 <see cref="List{T}"/> 配置（88 bytes）微不足道，
-/// 且交叉點很快就會越過；而 net8.0 在同樣的 8 筆輸入上反而快了約 50%——
-/// 需要被最佳化的正是較慢的那個 Runtime。
+/// 效能依輸入形狀、元素型別與 Runtime 而異；量測摘要及撤回決策見 repository 的 CHANGELOG。
+/// 未量測的輸入不保證加速。
 /// </para>
 /// </remarks>
 public static class EnumerableExtensions
@@ -60,50 +57,45 @@ public static class EnumerableExtensions
     public static IEnumerable<T> Values<T>(this IEnumerable<Option<T>> source) where T : notnull
     {
         ArgumentNullException.ThrowIfNull(source);
-        return Iterate(source);
-
-        static IEnumerable<T> Iterate(IEnumerable<Option<T>> source)
+        // 每種來源使用獨立 iterator，避免陣列／一般序列也攜帶 List enumerator 的狀態。
+        // List 仍使用其 enumerator，保留 yield 之間修改集合時的版本檢查。
+        return source switch
         {
-            // 針對已知的具體集合型別做型別測試，讓 foreach 綁定到該型別自身的列舉方式，
-            // 而非 IEnumerable<T> 介面：陣列會編譯成索引迴圈，List<T> 則使用其 struct enumerator，
-            // 兩者都能避免介面派送與 enumerator 裝箱。
-            //
-            // 註：此處刻意不使用 Span<T>（例如 CollectionsMarshal.AsSpan）——
-            // ref struct 無法跨越 yield return 邊界（CS4007），迭代器方法中不可行。
-            switch (source)
+            Option<T>[] array => IterateArray(array),
+            List<Option<T>> list => IterateList(list),
+            _ => IterateEnumerable(source)
+        };
+
+        static IEnumerable<T> IterateArray(Option<T>[] source)
+        {
+            foreach (var option in source)
             {
-                case Option<T>[] array:
-                    foreach (var option in array)
-                    {
-                        if (option.TryGetValue(out var value))
-                        {
-                            yield return value;
-                        }
-                    }
+                if (option.TryGetValue(out var value))
+                {
+                    yield return value;
+                }
+            }
+        }
 
-                    break;
+        static IEnumerable<T> IterateList(List<Option<T>> source)
+        {
+            foreach (var option in source)
+            {
+                if (option.TryGetValue(out var value))
+                {
+                    yield return value;
+                }
+            }
+        }
 
-                case List<Option<T>> list:
-                    foreach (var option in list)
-                    {
-                        if (option.TryGetValue(out var value))
-                        {
-                            yield return value;
-                        }
-                    }
-
-                    break;
-
-                default:
-                    foreach (var option in source)
-                    {
-                        if (option.TryGetValue(out var value))
-                        {
-                            yield return value;
-                        }
-                    }
-
-                    break;
+        static IEnumerable<T> IterateEnumerable(IEnumerable<Option<T>> source)
+        {
+            foreach (var option in source)
+            {
+                if (option.TryGetValue(out var value))
+                {
+                    yield return value;
+                }
             }
         }
     }
@@ -348,7 +340,7 @@ public static class EnumerableExtensions
         ArgumentNullException.ThrowIfNull(source);
 
         // 陣列與 List<T> 走 span：省下 enumerator 配置與介面派送，並讓邊界檢查可被 JIT 消除。
-        // 走訪過程不回呼使用者程式碼，集合不可能在期間被修改，因此持有 span 是安全的。
+        // 走訪過程不回呼使用者程式碼；呼叫端不得並行修改來源集合。
         return source switch
         {
             Option<T>[] array => SequenceCore<T>(array),
@@ -386,16 +378,29 @@ public static class EnumerableExtensions
     /// </remarks>
     private static Option<List<T>> SequenceCore<T>(ReadOnlySpan<Option<T>> source) where T : notnull
     {
-        var values = new List<T>(source.Length);
-
-        foreach (ref readonly var option in source)
+        if (source.IsEmpty)
         {
-            if (!option.TryGetValue(out var value))
+            return Option<List<T>>.Some([]);
+        }
+
+        if (!source[0].TryGetValue(out var first))
+        {
+            return Option<List<T>>.None;
+        }
+
+        // 清單尚未逸出：成功時所有元素已填入；中途失敗則丟棄，不暴露未填入的區域。
+        var values = new List<T>(source.Length);
+        CollectionsMarshal.SetCount(values, source.Length);
+        var destination = CollectionsMarshal.AsSpan(values);
+        destination[0] = first;
+        for (var i = 1; i < source.Length; i++)
+        {
+            if (!source[i].TryGetValue(out var value))
             {
                 return Option<List<T>>.None;
             }
 
-            values.Add(value);
+            destination[i] = value;
         }
 
         return Option<List<T>>.Some(values);
@@ -466,8 +471,36 @@ public static class EnumerableExtensions
         where T : notnull
         where TE : notnull
     {
-        var values = new List<T>(source.Length);
+#if NET10_0_OR_GREATER
+        if (source.IsEmpty)
+        {
+            return Result<List<T>, TE>.Ok([]);
+        }
 
+        if (!source[0].TryGetOk(out var first, out var firstError))
+        {
+            return Result<List<T>, TE>.Err(firstError);
+        }
+
+        // 清單尚未逸出：成功時所有元素已填入；中途失敗則丟棄，不暴露未填入的區域。
+        var values = new List<T>(source.Length);
+        CollectionsMarshal.SetCount(values, source.Length);
+        var destination = CollectionsMarshal.AsSpan(values);
+        destination[0] = first;
+        for (var i = 1; i < source.Length; i++)
+        {
+            if (!source[i].TryGetOk(out var value, out var error))
+            {
+                return Result<List<T>, TE>.Err(error);
+            }
+
+            destination[i] = value;
+        }
+
+        return Result<List<T>, TE>.Ok(values);
+#else
+        // .NET 8 的 Span 寫入與額外首筆檢查皆有退步情境，保留原始實作。
+        var values = new List<T>(source.Length);
         foreach (ref readonly var result in source)
         {
             if (!result.TryGetOk(out var value, out var error))
@@ -479,6 +512,7 @@ public static class EnumerableExtensions
         }
 
         return Result<List<T>, TE>.Ok(values);
+#endif
     }
 
     /// <summary>
@@ -499,8 +533,8 @@ public static class EnumerableExtensions
     /// <para>
     /// 已知長度時只為<b>成功值</b>清單預配容量，錯誤清單維持惰性成長。
     /// 這是刻意的不對稱：本方法必然走訪全部元素（不像 <see cref="Sequence{T,TE}"/> 會短路），
-    /// 因此預配不會浪費；而典型用途是驗證，絕大多數元素預期為 Ok，
-    /// 若兩份都按總長度預配，錯誤清單幾乎必然是純粹浪費。
+    /// 典型用途是驗證，預期多數元素為 Ok；高錯誤比例時成功清單仍可能保留用不到的容量。
+    /// 精確預配需要額外走訪；對照測試顯示部分情境較慢，因此保留單趟策略。
     /// </para>
     /// </remarks>
     /// <example>

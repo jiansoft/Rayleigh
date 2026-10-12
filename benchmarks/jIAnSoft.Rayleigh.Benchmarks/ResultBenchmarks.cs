@@ -21,15 +21,19 @@ public class ResultBenchmarks
 
     /// <summary>Map -> Bind -> Match 鏈，全程使用 static lambda，不捕獲任何外部變數。</summary>
     [Benchmark]
-    public string MapBindMatchChain_StaticLambda()
+    public int MapBindMatchChain_StaticLambda()
     {
         return _ok
             .Map(static x => x * 2)
             .Bind(static x => x > 0 ? Result<int, string>.Ok(x) : Result<int, string>.Err("non-positive"))
             .Match(
-                ok: static v => $"value:{v}",
-                err: static e => $"error:{e}");
+                ok: static v => v,
+                err: static _ => -1);
     }
+
+    /// <summary>字串格式化另行量測，避免混入容器的配置成本。</summary>
+    [Benchmark]
+    public string Match_FormatString() => _ok.Match(static v => $"value:{v}", static e => $"error:{e}");
 
     [Benchmark]
     public bool TryGetOk_Ok()

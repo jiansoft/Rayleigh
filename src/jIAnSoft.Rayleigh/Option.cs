@@ -71,9 +71,9 @@ public static class Option
 /// 此型別為 <c>readonly struct</c>，具備以下效能優勢：
 /// </para>
 /// <list type="bullet">
-///   <item><description>零 Heap 分配：整個結構儲存於 Stack</description></item>
-///   <item><description>AggressiveInlining：關鍵方法會被 JIT 內聯</description></item>
-///   <item><description>大小等同於 T 加上一個 bool 欄位</description></item>
+///   <item><description>容器本身不需要獨立的 Heap 物件；實際儲存位置依擁有者而定，boxing 仍會配置。</description></item>
+///   <item><description>AggressiveInlining 提示 JIT 考慮內聯，是否採用仍由 JIT 決定。</description></item>
+///   <item><description>包含 T 與 bool 欄位，實際大小另受對齊與 padding 影響。</description></item>
 /// </list>
 ///
 /// <para><b>使用範例</b></para>
@@ -414,6 +414,26 @@ public readonly struct Option<T> : IEquatable<Option<T>>, IComparable<Option<T>>
     #endregion
 
     #region Bind
+
+    /// <summary>有值時以顯式狀態映射值，讓 static lambda 不必捕獲區域變數。</summary>
+    /// <typeparam name="TU">映射後的值型別。</typeparam>
+    /// <typeparam name="TState">呼叫端狀態的型別。</typeparam>
+    /// <param name="state">傳給映射函數的狀態。</param>
+    /// <param name="mapper">接收值與狀態的映射函數。</param>
+    /// <returns>有值時回傳映射結果，否則回傳 None。</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Option<TU> Map<TU, TState>(TState state, Func<T, TState, TU> mapper) where TU : notnull
+        => IsSome ? Option<TU>.Some(mapper(_value, state)) : Option<TU>.None;
+
+    /// <summary>有值時以顯式狀態串接下一步，讓 static lambda 不必捕獲區域變數。</summary>
+    /// <typeparam name="TU">下一步的值型別。</typeparam>
+    /// <typeparam name="TState">呼叫端狀態的型別。</typeparam>
+    /// <param name="state">傳給下一步的狀態。</param>
+    /// <param name="binder">接收值與狀態並回傳 Option 的函數。</param>
+    /// <returns>有值時回傳下一步結果，否則回傳 None。</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Option<TU> Bind<TU, TState>(TState state, Func<T, TState, Option<TU>> binder) where TU : notnull
+        => IsSome ? binder(_value, state) : Option<TU>.None;
 
     /// <summary>
     /// 如果有值，則將其映射到另一個 <see cref="Option{U}"/>。

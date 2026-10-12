@@ -131,8 +131,8 @@ internal enum ResultState : byte
 /// 此型別為 <c>readonly struct</c>，具備以下效能優勢：
 /// </para>
 /// <list type="bullet">
-///   <item><description>零 Heap 分配：整個結構儲存於 Stack</description></item>
-///   <item><description>AggressiveInlining：所有關鍵方法會被 JIT 內聯</description></item>
+///   <item><description>容器本身不需要獨立的 Heap 物件；實際儲存位置依擁有者而定，boxing 仍會配置。</description></item>
+///   <item><description>AggressiveInlining 提示 JIT 考慮內聯，是否採用仍由 JIT 決定。</description></item>
 ///   <item><description>無例外開銷：錯誤處理不需要建立例外物件或展開堆疊</description></item>
 /// </list>
 ///
@@ -405,14 +405,18 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     /// 建立一個代表成功的 <see cref="Result{T,TE}"/>（Ok 狀態）。這是 <see cref="Ok(T)"/> 靜態工廠方法背後實際呼叫的私有建構子。
     /// </summary>
     /// <param name="value">成功的值。</param>
+    /// <exception cref="ArgumentNullException">當成功值為 null 時擲出。</exception>
     /// <remarks>
-    /// 與失敗通道的建構子（<c>private Result(TE error)</c>）不同，此建構子不對 <paramref name="value"/> 做 null 檢查——
-    /// <typeparamref name="T"/> 的合法性交由呼叫端與泛型約束把關，僅錯誤通道因為承載「失敗原因」而特別強制非 null，
-    /// 避免建立出一個「失敗但沒有錯誤資訊」的 Result。
+    /// 與失敗通道一致，執行期拒絕 null，確保 TryGetOk、Unwrap 與 ToOption 的非 null 契約。
+    /// 泛型 notnull 約束無法防止停用 nullable 檢查的呼叫端，或 default(Ok&lt;T&gt;) 帶入 null。
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Result(T value)
     {
+        if (value is null)
+        {
+            ResultThrowHelper.ThrowNullValue();
+        }
         _value = value;
         _error = default;
         _state = ResultState.Ok;
@@ -481,6 +485,9 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     /// <summary>
     /// 創建一個代表成功的結果。
     /// </summary>
+    /// <param name="value">非 null 的成功值。</param>
+    /// <returns>包含成功值的 Result。</returns>
+    /// <exception cref="ArgumentNullException">當 <paramref name="value"/> 為 null 時擲出。</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Result<T, TE> Ok(T value) => new(value);
 
@@ -633,6 +640,19 @@ public readonly struct Result<T, TE> : IEquatable<Result<T, TE>>, IComparable<Re
     #endregion
 
     #region Bind
+
+    /// <summary>成功時以顯式狀態映射值，讓 static lambda 不必捕獲區域變數。</summary>
+    /// <typeparam name="TU">映射後的值型別。</typeparam>
+    /// <typeparam name="TState">呼叫端狀態的型別。</typeparam>
+    /// <param name="state">傳給映射函數的狀態。</param>
+    /// <param name="mapper">接收值與狀態的映射函數。</param>
+    /// <returns>成功時回傳映射結果，失敗時保留原錯誤。</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Result<TU, TE> Map<TU, TState>(TState state, Func<T, TState, TU> mapper) where TU : notnull
+    {
+        ThrowIfUninitialized();
+        return IsOk ? Result<TU, TE>.Ok(mapper(_value, state)) : Result<TU, TE>.Err(_error);
+    }
 
     /// <summary>
     /// 如果成功，則將其映射到另一個 <see cref="Result{U,E}"/>。

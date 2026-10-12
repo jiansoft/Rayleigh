@@ -50,12 +50,12 @@ public class SyncSourceAsyncExtensionsTests
     }
 
     /// <summary>
-    /// 驗證 Err 短路時回傳的 ValueTask 為「同步完成」——代表未建立 async 狀態機，因此沒有 heap 配置。
+    /// 驗證 Err 短路時回傳的 ValueTask 為「同步完成」。
     /// </summary>
     /// <remarks>
     /// <see cref="ValueTask{TResult}.IsCompletedSuccessfully"/> 在方法回傳的當下即為 true，
-    /// 是「該路徑完全同步、未經過 await」的可觀測證據。若日後有人為了圖方便把這些多載改成
-    /// <c>async</c>，本測試會立即失敗。
+    /// 只保證呼叫端不需要等待，不代表沒有 async 狀態機或 heap 配置。
+    /// 配置成本由 BenchmarkDotNet 的 MemoryDiagnoser 另外量測。
     /// </remarks>
     [Fact]
     public void Result_BindAsync_ErrSource_ReturnsSynchronouslyCompletedValueTask()
@@ -207,7 +207,7 @@ public class SyncSourceAsyncExtensionsTests
     }
 
     /// <summary>
-    /// 驗證 None 短路時回傳同步完成的 ValueTask（未建立 async 狀態機）。
+    /// 驗證 None 短路時回傳同步完成的 ValueTask；配置量另由 benchmark 驗證。
     /// </summary>
     [Fact]
     public void Option_BindAsync_NoneSource_ReturnsSynchronouslyCompletedValueTask()

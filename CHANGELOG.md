@@ -11,6 +11,13 @@
 
 ### 修正
 
+- SourceLink 升級至 10.0.303，排除建置相依 `Microsoft.Build.Tasks.Git 10.0.301` 的 CVE-2026-62900；保留 NuGetAudit 與 warnings-as-errors。
+- `Result.Ok` 現在會在建構時拒絕 null；包含隱式成功值轉換、`default(Ok<string>)` 與 mapper 回傳 null 的情境。這是可觀察的行為修正，避免 `TryGetOk` 成功時仍回傳 null。
+- `global.json` 將 SDK 下限改為 `10.0.100`，並以 `latestFeature`／`allowPrerelease: false` 限制使用穩定版 .NET 10 SDK；舊設定在本機仍可解析，這是建置政策收斂，不是已重現的建置失敗修正。
+- README 的範例與 benchmark 執行指令補上 `-f net10.0`；更正 struct 儲存位置、內聯提示及配置量測的說明。
+- 容器 benchmark 改回傳整數，字串格式化另行量測；同步完成測試只驗證完成狀態，配置由 BenchmarkDotNet 驗證。
+- 既有修改複核：補正遺漏的同步 Sum／MapAsync XML 範例（已重現 CS0411），收緊 Native AOT 的 null 例外斷言；SDK 調整明確歸類為政策變更。逐檔必要性與 bug 重現見 [審核報告](docs/performance/2026-10-12-prior-changes/README.md)。
+
 - **[重要] `Result<T, TE>.Deconstruct` 未中毒化未初始化狀態。**
 
   26.7.26 修正了未初始化偵測，但漏掉了 `Deconstruct`——而它正是 XML 文件推薦的
@@ -39,6 +46,9 @@
 
 ### 新增
 
+- `Option.Map(state, mapper)`／`Option.Bind(state, binder)` 與 `Result.Map(state, mapper)`：可搭配 static lambda 避免捕獲區域變數；原有多載不變。`Result.Bind` 的同類候選未穩定改善耗時，未採用。
+- ValueTask 單次消費／取消／例外測試、Sequence 儲存完整性測試。前一輪審查記錄以 BenchmarkDotNet 對原始 commit `6dd8b16` 完成 660 個對照案例；歷史工具與 CSV 已於清理時保存至 [補充證據壓縮檔](docs/performance/supporting-evidence.zip)。本次 Values 審查的 108＋8 個案例不涵蓋這些既有修改；既有修改另行審核。
+
 - `Result<T, TE>.IsUninitialized` — 唯一能**安全**偵測未初始化狀態的成員。
 
   `IsErr` 對未初始化同樣回傳 `true`，但緊接著呼叫 `UnwrapErr()` / `TryGetErr()` 會拋出例外。
@@ -51,11 +61,19 @@
 
 ### 效能
 
+- 2026-10-12 重新完成 192 個既有修改對照案例：.NET 10、65,536 筆成功 int 陣列的 Option／Result Sequence 平均耗時下降約 44%／30%；三個 state overload 在受測捕獲模式下配置 24 → 0 B。小集合與部分 string 案例差異仍在重疊區間內，null 防護不列為加速。原始 measurements、完整結果與限制見 [複核報告](docs/performance/2026-10-12-prior-changes/README.md)。
+- `Values()` 將 Array／List／一般 IEnumerable 分為獨立 iterator，保留延遲執行、Dispose 與 List 版本檢查。108 個 BenchmarkDotNet 案例及 8 個複測案例中，配置量每次操作減少 16～56 B；.NET 10 的 1,024 筆陣列（交錯 Some／None）平均耗時降低約 22%（int）、46%（Guid）、31%（string）。List 只主張配置下降：大型字串 List 複測平均耗時略慢、信賴區間重疊。完整原始結果與取捨見 [效能報告](docs/performance/2026-10-11-values/README.md)。
+- Array／List 的 `Option.Sequence`（net8.0／net10.0）與 `Result.Sequence`（僅 net10.0）先檢查首筆，再直接填入預配置的 List 儲存空間。以 BenchmarkDotNet 對照 int／Guid、空／小／大型及不同失敗位置；首筆失敗不再配置輸出清單。
+- 本次提出的一般 `IEnumerable.Sequence`、`Partition`、非同步快速路徑及 net8.0 `Result.Sequence` 候選均因退步或收益不穩定退回，保留審查起始版本的實作。
+- 前一輪 Sequence 量測環境：Ryzen 9 5950X／Windows x64、BenchmarkDotNet 0.15.8、.NET 8.0.30／10.0.11。65,536 筆全成功陣列的 net10.0 `Option<int>` 約 82.795 → 56.040 μs、`Result<int, string>` 約 85.851 → 71.120 μs；不保證未量測情境也加速。
+- null 契約修正不是效能最佳化：最終非泛型 throw helper 的 net8.0 string 批次建構約 5.547 ±0.937 → 5.745 ±0.958 ns，差異在誤差範圍內，不宣稱防護完全免費。
+- 前一輪回歸驗證：net8.0／net10.0 各 619 項測試通過，Windows x64 Native AOT 各 29 項檢查通過。Values 改善後重新驗證：兩個 TFM 各 632 項測試、Native AOT 各 31 項檢查通過；Release 建置、格式與套件驗證通過。
+
 - `Sequence`（`Option` 版與 `Result` 版）與 `Partition` 新增集合快速路徑：
   來源為陣列或 `List<T>` 時改走 `ReadOnlySpan<T>`，避開 enumerator 配置與介面派送，
   並以 `ref readonly` 走訪避免每輪複製整個 struct。
 
-  這些方法的走訪過程不回呼任何使用者程式碼，集合不可能在期間被修改，因此持有 span 是安全的。
+  這些方法的走訪過程不回呼任何使用者程式碼；呼叫端仍不得同時修改來源集合。
 
 - `Partition` 在來源長度已知時為成功值清單預配容量（先前完全未預配）。
   刻意只預配成功值而不預配錯誤清單：本方法必然走訪全部元素，且典型用途是驗證，

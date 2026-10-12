@@ -418,8 +418,8 @@ var maybeError = result.Err();
 
 ## Uses Modern .NET Features
 
-- **Zero heap allocation** — All core types (`Option<T>`, `Result<T, E>`, `Unit`) are `readonly struct`, living entirely on the stack.
-- **AggressiveInlining** — All critical-path methods are JIT-inlined for minimal overhead.
+- **No separate container allocation** — Core types (`Option<T>`, `Result<T, E>`, `Unit`) are `readonly struct`. Their storage follows their owner; boxing, captured lambdas, payload objects, collections and suspended async operations can still allocate.
+- **AggressiveInlining** — Critical paths provide an inlining hint; the JIT makes the final decision.
 - **`IEquatable<T>`** and **`IComparable<T>`** — `Option` and `Unit` can be compared, sorted, and used as dictionary keys.
 - **Nullable annotations** — Full support for C# nullable reference type analysis.
 - **LINQ query syntax** — `Select`, `SelectMany`, `Where` enable `from`/`where`/`select` syntax.
@@ -456,6 +456,7 @@ var maybeError = result.Err();
 | `IsSomeAnd(predicate)` | Conditional check |
 | `Match(some, none)` | Pattern match (with or without return value) |
 | `Map(mapper)` | Transform inner value |
+| `Map(state, mapper)` / `Bind(state, binder)` | Pass state to a static lambda without capturing a local variable |
 | `Filter(predicate)` | Conditional passthrough |
 | `Bind(binder)` | Monadic bind (flatMap) |
 | `Zip(other)` / `ZipWith(other, zipper)` | Combine two Options |
@@ -483,6 +484,7 @@ var maybeError = result.Err();
 | `IsOkAnd(predicate)` / `IsErrAnd(predicate)` | Conditional check |
 | `Match(ok, err)` | Pattern match |
 | `Map(mapper)` / `MapErr(mapper)` | Transform value or error |
+| `Map(state, mapper)` | Pass state to a static mapper without capturing a local variable |
 | `Bind(binder)` | Monadic bind |
 | `Or(other)` / `OrElse(factory)` | Fallback |
 | `Tap(action)` / `TapErr(action)` | Side effects |
@@ -611,10 +613,10 @@ The `examples/` project is a runnable tutorial, not a code dump. Each of the twe
 
 ```bash
 # Walk through all twelve modules
-dotnet run --project examples/jIAnSoft.Rayleigh.Examples
+dotnet run -f net10.0 --project examples/jIAnSoft.Rayleigh.Examples
 
 # Or jump to one — e.g. module 8, collection operations
-dotnet run --project examples/jIAnSoft.Rayleigh.Examples -- 8
+dotnet run -f net10.0 --project examples/jIAnSoft.Rayleigh.Examples -- 8
 ```
 
 | # | Module | Covers |
@@ -654,28 +656,28 @@ throughput for `Option<T>` and `Result<T, E>`, substantiating the "zero-allocati
 against regressions. Run it in Release mode (BenchmarkDotNet refuses to run under a Debug build):
 
 ```bash
-dotnet run -c Release --project benchmarks/jIAnSoft.Rayleigh.Benchmarks
+dotnet run -c Release -f net10.0 --project benchmarks/jIAnSoft.Rayleigh.Benchmarks
 ```
 
 Run a single suite, or a quick pass with fewer iterations:
 
 ```bash
 # One suite
-dotnet run -c Release --project benchmarks/jIAnSoft.Rayleigh.Benchmarks -- --filter '*EnumerableBenchmarks*'
+dotnet run -c Release -f net10.0 --project benchmarks/jIAnSoft.Rayleigh.Benchmarks -- --filter '*EnumerableBenchmarks*'
 
 # Quick pass (lower precision, much faster)
-dotnet run -c Release --project benchmarks/jIAnSoft.Rayleigh.Benchmarks -- --filter '*' --job short
+dotnet run -c Release -f net10.0 --project benchmarks/jIAnSoft.Rayleigh.Benchmarks -- --filter '*' --warmupCount 3 --iterationCount 8 --iterationTime 100
 ```
 
 | Suite | What it establishes |
 |---|---|
 | `OptionBenchmarks` | `Option<T>` allocates nothing on its own; the contrast group shows closure cost is the *caller's*, not the library's |
-| `ResultBenchmarks` | Same for `Result<T,E>`; the uninitialized-state guard costs nothing on the success path |
-| `EnumerableBenchmarks` | The collection combinators' stronger semantics don't cost throughput vs. their LINQ counterparts |
+| `ResultBenchmarks` | Construction, combinators, initialization checks, and caller allocation costs for `Result<T,E>` |
+| `EnumerableBenchmarks` | Collection combinators compared with equivalent LINQ workloads |
 | `AsyncPipelineBenchmarks` | Sync-source overloads short-circuit with **0 B** allocated, vs. the `Task.FromResult` wrapper they replace |
 | `ThrowPathBenchmarks` | Quantifies why `Result` beats exception-driven control flow on the error path |
 
-Representative numbers (BenchmarkDotNet 0.15.8, AMD Ryzen 9 5950X, .NET 10.0.9):
+Historical representative numbers (BenchmarkDotNet 0.15.8, AMD Ryzen 9 5950X, .NET 10.0.9; not measurements of the current working tree):
 
 | | Mean | Allocated |
 |---|---:|---:|
@@ -686,8 +688,26 @@ Representative numbers (BenchmarkDotNet 0.15.8, AMD Ryzen 9 5950X, .NET 10.0.9):
 | `Task.FromResult(err).BindAsync(...)` — the wrapper it replaces | 38.4 ns | 240 B |
 
 > **On precision:** these come from a `--job short` run (3 iterations), so the `Mean` column has wide
-> error bars and is directional only. The `Allocated` column is measured deterministically via GC
-> counters and is exact. Re-run without `--job short` for citable timings.
+> error bars and is directional only. The `Allocated` column is measured via GC
+> counters; normalized values can include harness overhead, especially for asynchronous operations and low invocation counts. Re-run with the default jobs for citable timings.
+
+The .NET 10 audit compared candidates against commit `6dd8b16` using BenchmarkDotNet. Accepted changes and rollback decisions are summarized in the [changelog](CHANGELOG.md).
+
+The [2026-10-12 review of existing changes](docs/performance/2026-10-12-prior-changes/README.md) verifies the null-contract bug,
+classifies every existing changed file, and preserves 192 fresh before/after measurements. Reproduce it with `./benchmarks/Measure-PriorChanges.ps1`.
+
+The [2026-10-11 Values review](docs/performance/2026-10-11-values/README.md) includes 108 before/after cases,
+8 focused reruns, raw measurements, and timing limitations. Reproduce it with `./benchmarks/Measure-Values.ps1`.
+
+For a mapper that needs caller state, use the state overload with a static lambda:
+
+```csharp
+var offset = 10;
+var adjusted = Result<int, string>.Ok(42)
+    .Map(offset, static (value, state) => value + state);
+```
+
+This avoids capturing `offset`; it does not eliminate allocations made by your mapper or by constructing the state itself.
 
 ## License
 

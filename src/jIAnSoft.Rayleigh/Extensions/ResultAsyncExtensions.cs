@@ -22,13 +22,13 @@ namespace jIAnSoft.Rayleigh;
 /// <example>
 /// <code>
 /// // 非同步鏈式操作
-/// var result = await GetUserAsync(userId)
-///     .BindAsync(user => GetOrdersAsync(user.Id))
-///     .MapAsync(orders => orders.Sum(o => o.Total));
+/// var result = (await GetUserAsync(userId)
+///     .BindAsync(user => GetOrdersAsync(user.Id)))
+///     .Map(orders => orders.Sum(o => o.Total));
 ///
 /// // 結合同步與非同步操作
-/// var greeting = await GetUserAsync(userId)
-///     .MapAsync(user => $"Hello, {user.Name}!");
+/// var greeting = (await GetUserAsync(userId))
+///     .Map(user => $"Hello, {user.Name}!");
 ///
 /// // 傳遞 CancellationToken，讓後續步驟也能觀察取消訊號
 /// var result2 = await GetUserAsync(userId)
